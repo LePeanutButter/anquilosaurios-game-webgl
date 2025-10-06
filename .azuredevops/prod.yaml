@@ -14,7 +14,7 @@ pool:
 variables:
   UNITY_VERSION: '6000.2.6f2'
   BUILD_OUTPUT_PATH: 'Build/WebGL'
-  GAME_NAME: 'Anquilosaurios'
+  GAME_NAME: 'BoomBuddies'
   UNITY_LICENSE: $(UNITY_LICENSE)
   UNITY_EMAIL: $(UNITY_EMAIL)
   UNITY_PASSWORD: $(UNITY_PASSWORD)
@@ -22,7 +22,7 @@ variables:
 
 jobs:
   - job: BUILD_Anquilosaurios_WebGL_prod
-    displayName: 'Build Stage for Unity WebGL ($(GAME_NAME) - main)'
+    displayName: 'Build Stage for Unity WebGL (Anquilosaurios - main)'
     steps:
       - task: Checkout@1
         displayName: 'Utility: Checkout Code'
@@ -57,7 +57,7 @@ jobs:
         displayName: 'Build: Compile Unity WebGL Game'
 
   - job: DEPLOY_Anquilosaurios_WebGL_prod
-    displayName: 'Deploy Stage for Unity WebGL ($(GAME_NAME) - Production)'
+    displayName: 'Deploy Stage for Unity WebGL (Anquilosaurios - production)'
     dependsOn: BUILD_Anquilosaurios_WebGL_prod
     condition: succeeded()
     steps:
