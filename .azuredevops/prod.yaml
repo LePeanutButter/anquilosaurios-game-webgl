@@ -16,10 +16,12 @@ variables:
   BUILD_OUTPUT_PATH: 'Build/WebGL'
   GAME_NAME: 'Anquilosaurios'
   UNITY_LICENSE: $(UNITY_LICENSE)
+  UNITY_EMAIL: $(UNITY_EMAIL)
+  UNITY_PASSWORD: $(UNITY_PASSWORD)
   UNITY_PROD_DEPLOYMENT_TOKEN: $(UNITY_PROD_DEPLOYMENT_TOKEN)
 
 jobs:
-  - job: BUILD_Anquilosaurios_WebGL
+  - job: BUILD_Anquilosaurios_WebGL_prod
     displayName: 'Build Stage for Unity WebGL ($(GAME_NAME) - main)'
     steps:
       - task: Checkout@1
@@ -34,6 +36,12 @@ jobs:
         displayName: 'Utility: Cache Unity Library'
 
       - script: |
+          echo "$UNITY_LICENSE" | base64 -d > Unity_v6000.ulf
+          mkdir -p ~/.local/share/unity3d/Unity/
+          mv Unity_v6000.ulf ~/.local/share/unity3d/Unity/Unity_lic.ulf
+        displayName: 'License: Inject Unity License File'
+
+      - script: |
           curl -sSL https://game.ci/docs/github/builder/install.sh | bash
         displayName: 'Utility: Install Unity Builder CLI'
 
@@ -43,11 +51,14 @@ jobs:
             --target WebGL \
             --buildName "$(GAME_NAME)" \
             --buildPath "$(BUILD_OUTPUT_PATH)"
+        env:
+          UNITY_EMAIL: $(UNITY_EMAIL)
+          UNITY_PASSWORD: $(UNITY_PASSWORD)
         displayName: 'Build: Compile Unity WebGL Game'
 
   - job: DEPLOY_Anquilosaurios_WebGL_prod
     displayName: 'Deploy Stage for Unity WebGL ($(GAME_NAME) - Production)'
-    dependsOn: Build_Anquilosaurios_WebGL
+    dependsOn: BUILD_Anquilosaurios_WebGL_prod
     condition: succeeded()
     steps:
       - task: AzureStaticWebApp@0
