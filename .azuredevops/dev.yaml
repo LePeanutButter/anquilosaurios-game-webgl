@@ -1,0 +1,60 @@
+trigger:
+  branches:
+    include:
+      - development
+
+pr:
+  branches:
+    include:
+      - development
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  UNITY_VERSION: '6000.2.6f2'
+  BUILD_OUTPUT_PATH: 'Build/WebGL'
+  GAME_NAME: 'Anquilosaurios'
+  UNITY_LICENSE: $(UNITY_LICENSE)
+  UNITY_DEV_DEPLOYMENT_TOKEN: $(UNITY_DEV_DEPLOYMENT_TOKEN)
+
+jobs:
+  - job: BUILD_Anquilosaurios_WebGL
+    displayName: 'Build Stage for Unity WebGL ($(GAME_NAME) - development)'
+    steps:
+      - task: Checkout@1
+        displayName: 'Utility: Checkout Code'
+
+      - task: Cache@2
+        inputs:
+          key: 'unity | "$(Agent.OS)" | Library'
+          restoreKeys: |
+            unity | "$(Agent.OS)"
+          path: Library
+        displayName: 'Utility: Cache Unity Library'
+
+      - script: |
+          curl -sSL https://game.ci/docs/github/builder/install.sh | bash
+        displayName: 'Utility: Install Unity Builder CLI'
+
+      - script: |
+          unity-builder \
+            --unityVersion $(UNITY_VERSION) \
+            --target WebGL \
+            --buildName "$(GAME_NAME)" \
+            --buildPath "$(BUILD_OUTPUT_PATH)"
+        displayName: 'Build: Compile Unity WebGL Game'
+
+  - job: DEPLOY_Anquilosaurios_WebGL_dev
+    displayName: 'Deploy Stage for Unity WebGL ($(GAME_NAME) - Development)'
+    dependsOn: Build_Anquilosaurios_WebGL
+    condition: succeeded()
+    steps:
+      - task: AzureStaticWebApp@0
+        inputs:
+          app_location: '/'
+          output_location: '$(BUILD_OUTPUT_PATH)'
+          azure_static_web_apps_api_token: $(UNITY_DEV_DEPLOYMENT_TOKEN)
+          is_static_export: true
+        displayName: 'Deploy: Push Unity WebGL to Azure Static Web Apps (Development)'
+        
