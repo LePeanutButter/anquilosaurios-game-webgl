@@ -51,9 +51,8 @@ jobs:
           key: Library-${{ matrix.targetPlatform }}
           restore-keys: Library-
 
-      # Step 3: Free disk space (only for mobile platforms)
-      - name: Free disk space (for Android/iOS etc.)
-        if: matrix.targetPlatform == 'Android' || matrix.targetPlatform == 'iOS'
+      # Step 3: Free disk space
+      - name: Free disk space
         uses: jlumbroso/free-disk-space@v1.3.1
 
       # Step 4: Build Unity project using GameCI
