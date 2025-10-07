@@ -1,76 +1,134 @@
-trigger:
-  branches:
-    include:
+# ===========================================
+# GitHub Actions Workflow: CI Build & Deploy
+# Environment: Production
+# Description:
+#   - Builds and deploys the BoomBuddies Unity WebGL game
+#   - Runs on every push or pull request to 'production'
+# ===========================================
+
+name: CI Build & Deploy (BoomBuddies - production)
+
+# -------------------------------------------
+# Trigger: Run workflow on push or PR to 'production' branch
+# -------------------------------------------
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
       - main
 
-pr:
-  branches:
-    include:
-      - main
-
-pool:
-  vmImage: ubuntu-latest
-
-variables:
-  UNITY_VERSION: '6000.2.6f2'
-  BUILD_OUTPUT_PATH: 'Build/WebGL'
-  GAME_NAME: 'BoomBuddies'
-  UNITY_LICENSE: $(UNITY_LICENSE)
-  UNITY_EMAIL: $(UNITY_EMAIL)
-  UNITY_PASSWORD: $(UNITY_PASSWORD)
-  UNITY_PROD_DEPLOYMENT_TOKEN: $(UNITY_PROD_DEPLOYMENT_TOKEN)
-
+# -------------------------------------------
+# Jobs Definition
+# -------------------------------------------
 jobs:
-  - job: BUILD_Anquilosaurios_WebGL_prod
-    displayName: 'Build Stage for Unity WebGL (Anquilosaurios - main)'
+  # =========================================
+  # Job: Build Stage
+  # Purpose: Build Unity WebGL game
+  # =========================================
+  build:
+    name: Build for ${{ matrix.targetPlatform }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        targetPlatform:
+          - WebGL
     steps:
-      - task: Checkout@1
-        displayName: 'Utility: Checkout Code'
+      # Step 1: Checkout source code from repository
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
 
-      - task: Cache@2
-        inputs:
-          key: 'unity | "$(Agent.OS)" | Library'
-          restoreKeys: |
-            unity | "$(Agent.OS)"
+      # Step 2: Cache Unity Library to speed up builds
+      - name: Cache Unity Library
+        uses: actions/cache@v3
+        with:
           path: Library
-        displayName: 'Utility: Cache Unity Library'
+          key: Library-${{ matrix.targetPlatform }}
+          restore-keys: Library-
 
-      - script: |
-          echo "$UNITY_LICENSE" | base64 -d > Unity_v6000.ulf
-          mkdir -p ~/.local/share/unity3d/Unity/
-          mv Unity_v6000.ulf ~/.local/share/unity3d/Unity/Unity_lic.ulf
-        displayName: 'License: Inject Unity License File'
+      # Step 3: Free disk space (only for mobile platforms)
+      - name: Free disk space (for Android/iOS etc.)
+        if: matrix.targetPlatform == 'Android' || matrix.targetPlatform == 'iOS'
+        uses: jlumbroso/free-disk-space@v1.3.1
 
-      - script: |
-          curl -sSL https://game.ci/docs/github/builder/install.sh | bash
-        displayName: 'Utility: Install Unity Builder CLI'
-
-      - script: |
-          unity-builder \
-            --unityVersion $(UNITY_VERSION) \
-            --target WebGL \
-            --buildName "$(GAME_NAME)" \
-            --buildPath "$(BUILD_OUTPUT_PATH)"
+      # Step 4: Build Unity project using GameCI
+      - name: Build Unity Project
+        uses: game-ci/unity-builder@v4
         env:
-          UNITY_EMAIL: $(UNITY_EMAIL)
-          UNITY_PASSWORD: $(UNITY_PASSWORD)
-        displayName: 'Build: Compile Unity WebGL Game'
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: ${{ matrix.targetPlatform }}
 
-  - job: DEPLOY_Anquilosaurios_WebGL_prod
-    displayName: 'Deploy Stage for Unity WebGL (Anquilosaurios - production)'
-    dependsOn: BUILD_Anquilosaurios_WebGL_prod
-    condition: succeeded()
+      # Step 5: Upload WebGL build artifacts for deployment
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Build-${{ matrix.targetPlatform }}
+          path: build/${{ matrix.targetPlatform }}
+
+  # =========================================
+  # Job: Deploy Stage
+  # Purpose: Deploy Unity WebGL to Azure Web App
+  # Depends on: build
+  # =========================================
+    deploy:
+    if: github.event_name == 'push'
+    name: Deploy WebGL to Azure Web App
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
-      - task: AzureStaticWebApp@0
-        inputs:
-          app_location: '/'
-          output_location: '$(BUILD_OUTPUT_PATH)'
-          azure_static_web_apps_api_token: $(UNITY_PROD_DEPLOYMENT_TOKEN)
-          is_static_export: true
-        displayName: 'Deploy: Push Unity WebGL to Azure Static Web Apps (Production)'
+      # Step 1: Download WebGL build artifacts from previous job
+      - name: Download WebGL Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Build-WebGL
+          path: build
 
-      - task: ManualValidation@0
-        inputs:
-          instructions: 'Approve Unity WebGL deployment to production'
-        displayName: 'Deploy: Manual Approval for Production Release'
-        condition: succeeded()
+      # Step 2: Flatten folder structure if Unity nested the WebGL output
+      - name: Flatten WebGL folder structure (if nested)
+        run: |
+          if [ -d build/WebGL ]; then
+            mv build/WebGL/* build/
+            rm -rf build/WebGL
+          fi
+
+      # Step 3: Inject Node.js server and package manifest into build folder
+      - name: Copy server.js and package.json
+        run: |
+          cp server.js package.json build/
+          ls -la build
+
+      # Step 4: Install Node.js dependencies (e.g. Express) for Azure runtime
+      - name: Install Node.js dependencies
+        working-directory: build
+        run: npm install --production
+
+      # Step 5: Login to Azure using service principal credentials
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_PROD }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_PROD }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_PROD }}
+
+      # Step 6: Deploy the WebGL build to Azure Web App
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'anquilosaurios-production-webgl'
+          slot-name: 'Production'
+          package: build
+
+      # Step 7: Logout from Azure to clean up session
+      - name: Logout from Azure
+        run: az logout
