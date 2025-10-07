@@ -78,7 +78,7 @@ jobs:
   # Purpose: Deploy Unity WebGL to Azure Web App
   # Depends on: build
   # =========================================
-    deploy:
+  deploy:
     if: github.event_name == 'push'
     name: Deploy WebGL to Azure Web App
     needs: build
