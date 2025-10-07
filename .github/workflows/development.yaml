@@ -1,0 +1,132 @@
+# ===========================================
+# GitHub Actions Workflow: CI Build & Deploy
+# Environment: Development
+# Description:
+#   - Builds and deploys the BoomBuddies Unity WebGL game
+#   - Runs on every push or pull request to 'development'
+# ===========================================
+
+name: CI Build & Deploy (BoomBuddies - development)
+
+# -------------------------------------------
+# Trigger: Run workflow on push or PR to 'development' branch
+# -------------------------------------------
+on:
+  push:
+    branches:
+      - development
+  pull_request:
+    branches:
+      - development
+
+# -------------------------------------------
+# Jobs Definition
+# -------------------------------------------
+jobs:
+  # =========================================
+  # Job: Build Stage
+  # Purpose: Build Unity WebGL game
+  # =========================================
+  build:
+    name: Build for ${{ matrix.targetPlatform }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        targetPlatform:
+          - WebGL
+    steps:
+      # Step 1: Checkout source code from repository
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      # Step 2: Cache Unity Library to speed up builds
+      - name: Cache Unity Library
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-${{ matrix.targetPlatform }}
+          restore-keys: Library-
+
+      # Step 3: Free disk space (only for mobile platforms)
+      - name: Free disk space (for Android/iOS etc.)
+        if: matrix.targetPlatform == 'Android' || matrix.targetPlatform == 'iOS'
+        uses: jlumbroso/free-disk-space@v1.3.1
+
+      # Step 4: Build Unity project using GameCI
+      - name: Build Unity Project
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: ${{ matrix.targetPlatform }}
+
+      # Step 5: Upload WebGL build artifacts for deployment
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Build-${{ matrix.targetPlatform }}
+          path: build/${{ matrix.targetPlatform }}
+
+  # =========================================
+  # Job: Deploy Stage
+  # Purpose: Deploy Unity WebGL to Azure Web App
+  # Depends on: build
+  # =========================================
+    deploy:
+    if: github.event_name == 'push'
+    name: Deploy WebGL to Azure Web App
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      # Step 1: Download WebGL build artifacts from previous job
+      - name: Download WebGL Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Build-WebGL
+          path: build
+
+      # Step 2: Flatten folder structure if Unity nested the WebGL output
+      - name: Flatten WebGL folder structure (if nested)
+        run: |
+          if [ -d build/WebGL ]; then
+            mv build/WebGL/* build/
+            rm -rf build/WebGL
+          fi
+
+      # Step 3: Inject Node.js server and package manifest into build folder
+      - name: Copy server.js and package.json
+        run: |
+          cp server.js package.json build/
+          ls -la build
+
+      # Step 4: Install Node.js dependencies (e.g. Express) for Azure runtime
+      - name: Install Node.js dependencies
+        working-directory: build
+        run: npm install --production
+
+      # Step 5: Login to Azure using service principal credentials
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_DEV_ENVIRONMENT }}
+
+      # Step 6: Deploy the WebGL build to Azure Web App
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'anquilosaurios-development-webgl'
+          slot-name: 'Production'
+          package: build
+
+      # Step 7: Logout from Azure to clean up session
+      - name: Logout from Azure
+        run: az logout
