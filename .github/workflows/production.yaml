@@ -116,11 +116,11 @@ jobs:
 
           echo "site/wwwroot/build listing:" && ls -la site/wwwroot/build
 
-      # Step 3: Copy server.js and package.json to site/wwwroot
+      # Step 3: Copy server.js and package.json from repo root to site/wwwroot
       - name: Add Node server files to wwwroot
         run: |
-          cp server.js site/wwwroot/
-          cp package.json site/wwwroot/
+          cp ${{ github.workspace }}/server.js site/wwwroot/
+          cp ${{ github.workspace }}/package.json site/wwwroot/
 
       # Step 4: Login to Azure using service principal credentials
       - name: Login to Azure
