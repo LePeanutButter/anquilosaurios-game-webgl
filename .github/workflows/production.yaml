@@ -116,7 +116,13 @@ jobs:
 
           echo "site/wwwroot/build listing:" && ls -la site/wwwroot/build
 
-      # Step 3: Login to Azure using service principal credentials
+      # Step 3: Copy server.js and package.json to site/wwwroot
+      - name: Add Node server files to wwwroot
+        run: |
+          cp server.js site/wwwroot/
+          cp package.json site/wwwroot/
+
+      # Step 4: Login to Azure using service principal credentials
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -124,7 +130,7 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_8F216CF2383D45149E7568ECF96FA6D4 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_2373CA70EE1D4BC08D99AF2269BE356D }}
 
-      # Step 4: Deploy the WebGL build to Azure Web App
+      # Step 5: Deploy the WebGL build to Azure Web App
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
@@ -132,6 +138,6 @@ jobs:
           slot-name: 'Production'
           package: site/wwwroot
 
-      # Step 5: Logout from Azure to clean up session
+      # Step 6: Logout from Azure to clean up session
       - name: Logout from Azure
         run: az logout
