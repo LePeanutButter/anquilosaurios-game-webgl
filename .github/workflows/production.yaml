@@ -93,30 +93,28 @@ jobs:
           name: Build-WebGL
           path: build
 
-      # Step 2: Move build files to site/wwwroot, flatten WebGL if present, skip if empty.
-      - name: Move files to site/wwwroot
+      # Step 2: Prepare site/wwwroot/build with WebGL contents
+      - name: Place WebGL into site/wwwroot/build
         run: |
-          echo "Build folder listing:" && ls -la build || true
+          echo "Listing downloaded build:" && ls -la build || true
 
           if [ -d build/WebGL ]; then
-            echo "Detected build/WebGL, flattening..."
+            echo "Found nested build/WebGL — flattening..."
             mv build/WebGL/* build/ || true
             rm -rf build/WebGL || true
           fi
 
-          if [ -d build ] && [ "$(ls -A build)" ]; then
-            mkdir -p site/wwwroot
-            # include dotfiles
-            shopt -s dotglob
-            mv build/* site/wwwroot/
-            shopt -u dotglob
-            rm -rf build || true
-            echo "Files moved to site/wwwroot"
-            ls -la site/wwwroot
-          else
-            echo "No build artifacts found to move"
-            exit 1
+          if [ ! -d build ] || [ -z "$(ls -A build)" ]; then
+            echo "ERROR: no build artifacts present in build/"; exit 1
           fi
+          
+          mkdir -p site/wwwroot/build
+
+          shopt -s dotglob || true
+          mv build/* site/wwwroot/build/
+          shopt -u dotglob || true
+
+          echo "site/wwwroot/build listing:" && ls -la site/wwwroot/build
 
       # Step 3: Login to Azure using service principal credentials
       - name: Login to Azure
