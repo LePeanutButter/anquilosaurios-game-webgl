@@ -101,25 +101,13 @@ jobs:
             rm -rf build/WebGL
           fi
 
-      # Step 3: Inject Node.js server and package manifest into build folder
-      - name: Copy server.js and package.json
-        working-directory: ${{ github.workspace }}
-        run: |
-          cp server.js package.json build/
-          ls -la build
-
-      # Step 4: Install Node.js dependencies (e.g. Express) for Azure runtime
-      - name: Install Node.js dependencies
-        working-directory: build
-        run: npm install --production
-
-      # Step 5: Login to Azure using service principal credentials
+      # Step 3: Login to Azure using service principal credentials
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_DEV_ENVIRONMENT }}
 
-      # Step 6: Deploy the WebGL build to Azure Web App
+      # Step 4: Deploy the WebGL build to Azure Web App
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
@@ -127,6 +115,6 @@ jobs:
           slot-name: 'Production'
           package: build
 
-      # Step 7: Logout from Azure to clean up session
+      # Step 5: Logout from Azure to clean up session
       - name: Logout from Azure
         run: az logout
