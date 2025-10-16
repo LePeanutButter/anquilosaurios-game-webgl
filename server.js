@@ -1,8 +1,7 @@
 const express = require('express');
-const compression = require('compression');
 const path = require('path');
-
 const app = express();
+
 const PORT = process.env.PORT || 8080;
 const BUILD_PATH = path.join(__dirname, 'webgl');
 
@@ -29,16 +28,6 @@ app.get('*.gz', (req, res, next) => {
     res.set('Content-Encoding', 'gzip');
     next();
 });
-
-app.use(compression({
-    filter: (req, res) => {
-        if (req.headers['x-no-compression']) {
-            return false;
-        }
-        return compression.filter(req, res);
-    },
-    level: 9,
-}));
 
 app.use(express.static(BUILD_PATH, {
     setHeaders: (res, path, stat) => {
