@@ -65,21 +65,23 @@ jobs:
         with:
           targetPlatform: ${{ matrix.targetPlatform }}
 
-      # Step 5: Upload WebGL build artifacts for deployment
+      # Step 5: Decompress .br and .gz files (avoid Content-Encoding issues)
+      - name: Decompress Brotli and Gzip files
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y brotli gzip
+          echo "Decompressing any .br or .gz files in build/${{ matrix.targetPlatform }}..."
+          find build/${{ matrix.targetPlatform }} -type f -name "*.br" -exec sh -c 'brotli --decompress "$1" && rm "$1"' _ {} \;
+          find build/${{ matrix.targetPlatform }} -type f -name "*.gz" -exec sh -c 'gzip -d "$1"' _ {} \;
+          echo "Remaining files:"
+          find build/${{ matrix.targetPlatform }} -type f | head -n 20
+
+      # Step 6: Upload Build Artifacts for deploy
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Build-${{ matrix.targetPlatform }}
           path: build/${{ matrix.targetPlatform }}
-      
-      # Step 6: Upload server files as separate artifact
-      - name: Upload Server Files
-        uses: actions/upload-artifact@v4
-        with:
-          name: Server-Files
-          path: |
-            server.js
-            package.json
 
   # =========================================
   # Job: Deploy Stage
@@ -102,57 +104,30 @@ jobs:
           name: Build-WebGL
           path: build
 
-      # Step 2: Download server files artifact
-      - name: Download Server Files
-        uses: actions/download-artifact@v4
-        with:
-          name: Server-Files
-          path: server
-
-      # Step 3: Prepare site/wwwroot/build with WebGL contents
-      - name: Place WebGL into site/wwwroot/build
+      # Step 2: Prepare wwwroot folder for Azure
+      - name: Prepare site/wwwroot/build
         run: |
-          echo "Listing downloaded build:" && ls -la build || true
+          echo "Checking build contents:"
+          ls -la build || true
 
           if [ -d build/WebGL ]; then
-            echo "Found nested build/WebGL — flattening..."
+            echo "Flattening nested WebGL directory..."
             mv build/WebGL/* build/ || true
             rm -rf build/WebGL || true
           fi
 
-          if [ ! -d build ] || [ -z "$(ls -A build)" ]; then
-            echo "ERROR: no build artifacts present in build/"; exit 1
-          fi
-          
           mkdir -p site/wwwroot/build
-
           cp -r build/* site/wwwroot/build/
+          echo "site/wwwroot/build listing:"
+          ls -la site/wwwroot/build
 
-          echo "site/wwwroot/build listing:" && ls -la site/wwwroot/build
-
-      # Step 4: Copy server.js and package.json to site/wwwroot
-      - name: Add Node server files to wwwroot
-        run: |
-          cp server/server.js site/wwwroot/
-          cp server/package.json site/wwwroot/
-
-      # Step 5: Install Node.js and dependencies
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install server dependencies
-        working-directory: site/wwwroot
-        run: npm install --production
-
-      # Step 6: Login to Azure using service principal credentials
+      # Step 3: Login to Azure using service principal credentials
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_DEV_ENVIRONMENT }}
 
-      # Step 7: Deploy the WebGL build to Azure Web App
+      # Step 4: Deploy the WebGL build to Azure Web App
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
@@ -160,6 +135,6 @@ jobs:
           slot-name: 'Production'
           package: site/wwwroot
 
-      # Step 8: Logout from Azure to clean up session
+      # Step 5: Logout from Azure to clean up session
       - name: Logout from Azure
         run: az logout
