@@ -126,9 +126,7 @@ jobs:
           
           mkdir -p site/wwwroot/build
 
-          shopt -s dotglob || true
-          mv build/* site/wwwroot/build/
-          shopt -u dotglob || true
+          cp -r build/* site/wwwroot/build/
 
           echo "site/wwwroot/build listing:" && ls -la site/wwwroot/build
 
