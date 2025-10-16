@@ -88,7 +88,7 @@ jobs:
     steps:
       - name: Checkout project
         uses: actions/checkout@v4
-        
+
       # Step 1: Download WebGL build artifacts from previous job
       - name: Download WebGL Build Artifacts
         uses: actions/download-artifact@v4
@@ -108,18 +108,18 @@ jobs:
             rm -rf build/WebGL || true
           fi
 
-          mkdir -p site/wwwroot
+          mkdir -p site/wwwroot/webgl
 
-          cp -r build/* site/wwwroot/
+          cp -r build/* site/wwwroot/webgl
 
-          echo "site/wwwroot listing (first 50 entries):"
-          find site/wwwroot | head -n 50
+          echo "site/wwwroot/webgl listing (first 50 entries):"
+          find site/wwwroot/webgl | head -n 50
 
       # Step 3: Copy Files from Server to the Root of the Deployment Package
       - name: Copy Server Files to Deployment Package
         run: |
-          cp package.json site/
-          cp server.js site/
+          cp package.json site/wwwroot
+          cp server.js site/wwwroot
           
       # Step 4: Install Node.js Dependencies
       - name: Install Node.js Dependencies
@@ -127,7 +127,7 @@ jobs:
         with:
           node-version: '20'
       - name: Install dependencies
-        run: npm install --prefix site/
+        run: npm install --prefix site/wwwroot/
 
       # Step 5: Login to Azure using service principal credentials
       - name: Login to Azure
@@ -143,7 +143,7 @@ jobs:
         with:
           app-name: 'anquilosaurios-production-webgl'
           slot-name: 'Production'
-          package: site/
+          package: site/wwwroot
 
       # Step 7: Logout from Azure to clean up session
       - name: Logout from Azure
