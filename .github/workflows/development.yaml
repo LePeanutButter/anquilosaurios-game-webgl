@@ -136,13 +136,23 @@ jobs:
           cp server/server.js site/wwwroot/
           cp server/package.json site/wwwroot/
 
-      # Step 5: Login to Azure using service principal credentials
+      # Step 5: Install Node.js and dependencies
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install server dependencies
+        working-directory: site/wwwroot
+        run: npm install --production
+
+      # Step 6: Login to Azure using service principal credentials
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_DEV_ENVIRONMENT }}
 
-      # Step 6: Deploy the WebGL build to Azure Web App
+      # Step 7: Deploy the WebGL build to Azure Web App
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
@@ -150,6 +160,6 @@ jobs:
           slot-name: 'Production'
           package: site/wwwroot
 
-      # Step 7: Logout from Azure to clean up session
+      # Step 8: Logout from Azure to clean up session
       - name: Logout from Azure
         run: az logout
