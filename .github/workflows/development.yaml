@@ -97,6 +97,9 @@ jobs:
       id-token: write
       contents: read
     steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+        
       # Step 1: Download WebGL build artifacts from previous job
       - name: Download WebGL Build Artifacts
         uses: actions/download-artifact@v4
@@ -116,14 +119,6 @@ jobs:
             rm -rf build/WebGL || true
           fi
 
-          sudo apt-get update
-          sudo apt-get install -y brotli gzip
-          echo "Decompressing any .br or .gz files inside build/Build ..."
-          if [ -d build/Build ]; then
-            find build/Build -type f -name "*.br" -exec sh -c 'brotli --decompress "$1" && rm "$1"' _ {} \;
-            find build/Build -type f -name "*.gz" -exec sh -c 'gzip -d "$1"' _ {} \;
-          fi
-
           mkdir -p site/wwwroot
 
           cp -r build/* site/wwwroot/
@@ -131,20 +126,34 @@ jobs:
           echo "site/wwwroot listing (first 50 entries):"
           find site/wwwroot | head -n 50
 
-      # Step 3: Login to Azure using service principal credentials
+      # Step 3: Copy Files from Server to the Root of the Deployment Package
+      - name: Copy Server Files to Deployment Package
+        run: |
+          cp package.json site/
+          cp server.js site/
+          
+      # Step 4: Install Node.js Dependencies
+      - name: Install Node.js Dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install --prefix site/
+
+      # Step 5: Login to Azure using service principal credentials
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_DEV_ENVIRONMENT }}
 
-      # Step 4: Deploy the WebGL build to Azure Web App
+      # Step 6: Deploy the WebGL build to Azure Web App
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'anquilosaurios-development-webgl'
           slot-name: 'Production'
-          package: site/wwwroot
+          package: site/
 
-      # Step 5: Logout from Azure to clean up session
+      # Step 7: Logout from Azure to clean up session
       - name: Logout from Azure
         run: az logout
