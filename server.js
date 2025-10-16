@@ -6,6 +6,30 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const BUILD_PATH = path.join(__dirname, 'webgl');
 
+app.get('*.br', (req, res, next) => {
+    if (req.url.endsWith('.data.br')) {
+        res.set('Content-Type', 'application/octet-stream');
+    } else if (req.url.endsWith('.wasm.br')) {
+        res.set('Content-Type', 'application/wasm');
+    } else if (req.url.endsWith('.js.br')) {
+        res.set('Content-Type', 'application/javascript');
+    }
+    
+    res.set('Content-Encoding', 'br');
+    next();
+});
+
+app.get('*.gz', (req, res, next) => {
+    if (req.url.endsWith('.data.gz')) {
+        res.set('Content-Type', 'application/octet-stream');
+    } else if (req.url.endsWith('.js.gz')) {
+        res.set('Content-Type', 'application/javascript');
+    }
+    
+    res.set('Content-Encoding', 'gzip');
+    next();
+});
+
 app.use(compression({
     filter: (req, res) => {
         if (req.headers['x-no-compression']) {
