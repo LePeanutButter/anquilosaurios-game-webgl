@@ -71,6 +71,15 @@ jobs:
         with:
           name: Build-${{ matrix.targetPlatform }}
           path: build/${{ matrix.targetPlatform }}
+      
+      # Step 6: Upload server files as separate artifact
+      - name: Upload Server Files
+        uses: actions/upload-artifact@v4
+        with:
+          name: Server-Files
+          path: |
+            server.js
+            package.json
 
   # =========================================
   # Job: Deploy Stage
@@ -93,7 +102,14 @@ jobs:
           name: Build-WebGL
           path: build
 
-      # Step 2: Prepare site/wwwroot/build with WebGL contents
+      # Step 2: Download server files artifact
+      - name: Download Server Files
+        uses: actions/download-artifact@v4
+        with:
+          name: Server-Files
+          path: server
+
+      # Step 3: Prepare site/wwwroot/build with WebGL contents
       - name: Place WebGL into site/wwwroot/build
         run: |
           echo "Listing downloaded build:" && ls -la build || true
@@ -116,19 +132,19 @@ jobs:
 
           echo "site/wwwroot/build listing:" && ls -la site/wwwroot/build
 
-      # Step 3: Copy server.js and package.json from repo root to site/wwwroot
+      # Step 4: Copy server.js and package.json to site/wwwroot
       - name: Add Node server files to wwwroot
         run: |
-          cp ${{ github.workspace }}/server.js site/wwwroot/
-          cp ${{ github.workspace }}/package.json site/wwwroot/
+          cp server/server.js site/wwwroot/
+          cp server/package.json site/wwwroot/
 
-      # Step 4: Login to Azure using service principal credentials
+      # Step 5: Login to Azure using service principal credentials
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_DEV_ENVIRONMENT }}
 
-      # Step 5: Deploy the WebGL build to Azure Web App
+      # Step 6: Deploy the WebGL build to Azure Web App
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
@@ -136,6 +152,6 @@ jobs:
           slot-name: 'Production'
           package: site/wwwroot
 
-      # Step 6: Logout from Azure to clean up session
+      # Step 7: Logout from Azure to clean up session
       - name: Logout from Azure
         run: az logout
