@@ -65,18 +65,7 @@ jobs:
         with:
           targetPlatform: ${{ matrix.targetPlatform }}
 
-      # Step 5: Decompress .br and .gz files (avoid Content-Encoding issues)
-      - name: Decompress Brotli and Gzip files
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y brotli gzip
-          echo "Decompressing any .br or .gz files in build/${{ matrix.targetPlatform }}/Build ..."
-          find build/${{ matrix.targetPlatform }}/Build -type f -name "*.br" -exec sh -c 'brotli --decompress "$1" && rm "$1"' _ {} \;
-          find build/${{ matrix.targetPlatform }}/Build -type f -name "*.gz" -exec sh -c 'gzip -d "$1"' _ {} \;
-          echo "Remaining files in Build folder:"
-          find build/${{ matrix.targetPlatform }}/Build -type f | head -n 20
-
-      # Step 6: Upload Build Artifacts for deploy
+      # Step 5: Upload Build Artifacts for deploy
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -116,15 +105,19 @@ jobs:
             rm -rf build/WebGL || true
           fi
 
+          sudo apt-get update
+          sudo apt-get install -y brotli gzip
+          echo "Decompressing any .br or .gz files inside build/Build ..."
+          if [ -d build/Build ]; then
+            find build/Build -type f -name "*.br" -exec sh -c 'brotli --decompress "$1" && rm "$1"' _ {} \;
+            find build/Build -type f -name "*.gz" -exec sh -c 'gzip -d "$1"' _ {} \;
+          fi
+
           mkdir -p site/wwwroot
 
           cp -r build/* site/wwwroot/
-          if [ ! -f site/wwwroot/index.html ]; then
-            echo "Warning: index.html not found in site/wwwroot!"
-            find site/wwwroot -maxdepth 2 -type f -name "index.html"
-          fi
 
-          echo "site/wwwroot structure (first 50 entries):"
+          echo "site/wwwroot listing (first 50 entries):"
           find site/wwwroot | head -n 50
 
       # Step 3: Login to Azure using service principal credentials
