@@ -57,6 +57,10 @@ namespace Game.Player
 
         #region Unity Callbacks
 
+        /// <summary>
+        /// Unity callback invoked when the script instance is being loaded.
+        /// Initializes the Rigidbody2D component and sets interpolation mode based on inspector settings.
+        /// </summary>
         private void Awake()
         {
             _rb = GetComponent<Rigidbody2D>();
@@ -72,6 +76,10 @@ namespace Game.Player
                 : RigidbodyInterpolation2D.None;
         }
 
+        /// <summary>
+        /// Unity callback invoked at a fixed time interval, used for physics updates.
+        /// Applies horizontal movement to the Rigidbody2D based on input and current speed.
+        /// </summary>
         private void FixedUpdate()
         {
             float horizontal = _moveInput.x;
@@ -83,6 +91,29 @@ namespace Game.Player
             float movement = Mathf.Sign(horizontal) * Mathf.Abs(horizontal) * CurrentSpeed * Time.fixedDeltaTime;
             Vector2 newPosition = _rb.position + new Vector2(movement, 0f);
             _rb.MovePosition(newPosition);
+        }
+
+        /// <summary>
+        /// Updates the player's facing direction based on horizontal input.
+        /// Flips the local scale on X axis only when direction changes.
+        /// </summary>
+        /// <param name="input">Movement input vector.</param>
+        private void SetFacingDirection(Vector2 input)
+        {
+            float direction = input.x;
+
+            if (Mathf.Approximately(direction, 0f))
+                return;
+
+            float currentScaleX = transform.localScale.x;
+            float desiredScaleX = Mathf.Sign(direction) * Mathf.Abs(currentScaleX);
+
+            if (!Mathf.Approximately(currentScaleX, desiredScaleX))
+            {
+                Vector3 newScale = transform.localScale;
+                newScale.x = desiredScaleX;
+                transform.localScale = newScale;
+            }
         }
 
         #if UNITY_EDITOR
@@ -105,6 +136,8 @@ namespace Game.Player
         {
             _moveInput = context.ReadValue<Vector2>();
             IsMoving = !Mathf.Approximately(_moveInput.x, 0f);
+
+            SetFacingDirection(_moveInput);
         }
 
         /// <summary>
