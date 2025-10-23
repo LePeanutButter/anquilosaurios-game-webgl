@@ -31,6 +31,18 @@ namespace Game.Player
         [SerializeField, Tooltip("Enable Rigidbody2D interpolation for smooth movement.")]
         private bool useInterpolation = true;
 
+        [SerializeField, Tooltip("Force applied when jumping."), Range(0f, 50f)]
+        private float jumpForce = 10f;
+
+        [SerializeField, Tooltip("Layers considered as ground.")]
+        private LayerMask groundLayer;
+
+        [SerializeField, Tooltip("Offset and radius for ground check.")]
+        private Vector2 groundCheckOffset = new Vector2(0f, -0.5f);
+
+        [SerializeField, Tooltip("Radius for ground check.")]
+        private float groundCheckRadius = 0.2f;
+
         #endregion
 
         #region Private Fields
@@ -38,6 +50,8 @@ namespace Game.Player
         private Rigidbody2D _rb;
         private Vector2 _moveInput;
         private bool _isRunning;
+        private bool _isGrounded;
+        private bool _jumpRequested;
 
         #endregion
 
@@ -82,15 +96,21 @@ namespace Game.Player
         /// </summary>
         private void FixedUpdate()
         {
+            CheckGrounded();
+
             float horizontal = _moveInput.x;
-            if (Mathf.Approximately(horizontal, 0f))
+            if (!Mathf.Approximately(horizontal, 0f))
             {
-                return;
+                float movement = Mathf.Sign(horizontal) * Mathf.Abs(horizontal) * CurrentSpeed * Time.fixedDeltaTime;
+                Vector2 newPosition = _rb.position + new Vector2(movement, 0f);
+                _rb.MovePosition(newPosition);
             }
 
-            float movement = Mathf.Sign(horizontal) * Mathf.Abs(horizontal) * CurrentSpeed * Time.fixedDeltaTime;
-            Vector2 newPosition = _rb.position + new Vector2(movement, 0f);
-            _rb.MovePosition(newPosition);
+            if (_jumpRequested)
+            {
+                _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, jumpForce);
+                _jumpRequested = false;
+            }
         }
 
         /// <summary>
@@ -116,7 +136,17 @@ namespace Game.Player
             }
         }
 
-        #if UNITY_EDITOR
+        /// <summary>
+        /// Checks if the player is currently grounded using an overlap circle.
+        /// </summary>
+        private void CheckGrounded()
+        {
+            Vector2 checkPosition = (Vector2)transform.position + groundCheckOffset;
+            _isGrounded = Physics2D.OverlapCircle(checkPosition, groundCheckRadius, groundLayer);
+        }
+
+
+#if UNITY_EDITOR
         private void OnValidate()
         {
             walkSpeed = Mathf.Max(0f, walkSpeed);
@@ -155,6 +185,19 @@ namespace Game.Player
                 _isRunning = false;
             }
         }
+
+        /// <summary>
+        /// Input System callback for jump. Triggered when jump button is pressed.
+        /// </summary>
+        /// <param name="context">Input action context.</param>
+        public void OnJump(InputAction.CallbackContext context)
+        {
+            if (context.performed && _isGrounded)
+            {
+                _jumpRequested = true;
+            }
+        }
+
 
         #endregion
 
