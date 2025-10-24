@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 2205661803709767447}
   - component: {fileID: -3065196340252306378}
   - component: {fileID: 797520349482361058}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Player
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -133,16 +133,14 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cd1535ed243d06d47bbca7bfdeea43ae, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: '::'
-  walkSpeed: 5
-  runSpeed: 2
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerController
+  walkSpeed: 10
+  runSpeed: 1.2
+  jumpVelocity: 6
   useInterpolation: 1
-  jumpForce: 10
   groundLayer:
     serializedVersion: 2
-    m_Bits: 0
-  groundCheckOffset: {x: 0, y: -0.5}
-  groundCheckRadius: 0.2
+    m_Bits: 64
 --- !u!114 &2205661803709767447
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -293,7 +291,7 @@ BoxCollider2D:
   m_Enabled: 1
   serializedVersion: 3
   m_Density: 1
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 6200000, guid: dcfd0f88923fb8540b1c79fb176b386a, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
