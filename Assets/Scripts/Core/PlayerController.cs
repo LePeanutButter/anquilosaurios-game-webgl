@@ -2,37 +2,53 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// 2D player controller that moves the GameObject horizontally only (X axis).
-/// Consumes Unity Input System actions and moves the GameObject via Rigidbody2D
-/// to preserve physics behavior.
+/// 2D player controller that moves the GameObject horizontally (X axis only).
+/// Uses Unity's Input System and Rigidbody2D for physics-based movement.
+/// Supports walking, running, jumping, and ground detection.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
 public sealed class PlayerController : MonoBehaviour
 {
     #region Inspector Fields
+
     [SerializeField, Tooltip("Base walking speed (units/sec)."), Range(0f, 50f)]
-    private float walkSpeed = 10f;
+    private float walkSpeed = 8f;
     [SerializeField, Tooltip("Run speed multiplier."), Range(1f, 5f)]
-    private float runSpeed = 1.2f;
+    private float runSpeed = 1.8f;
     [SerializeField, Tooltip("Velocidad vertical inicial del salto (unidades/seg).")]
     private float jumpVelocity = 6f;
     [SerializeField, Tooltip("Enable Rigidbody2D interpolation for smooth movement.")]
     private bool useInterpolation = true;
     [SerializeField, Tooltip("Layer mask used to detect what counts as ground.")]
     private LayerMask groundLayer = ~0;
+
     #endregion
 
     #region Private Fields
+
     private Rigidbody2D _rb;
     private Collider2D _collider;
     private Vector2 _moveInput;
     private bool _isRunning;
     private bool _isGrounded;
+
     #endregion
 
     #region Public Properties
+
+    /// <summary>
+    /// Indicates whether the player is currently moving.
+    /// </summary>
     public bool IsMoving { get; private set; }
+
+    /// <summary>
+    /// Current movement speed based on walk speed and run multiplier.
+    /// </summary>
     public float CurrentSpeed => walkSpeed * (_isRunning ? runSpeed : 1f);
+
+    /// <summary>
+    /// Indicates whether the player is currently grounded.
+    /// </summary>
     public bool IsGrounded => _isGrounded;
     #endregion
 
@@ -40,7 +56,7 @@ public sealed class PlayerController : MonoBehaviour
 
     /// <summary>
     /// Unity callback invoked when the script instance is being loaded.
-    /// Initializes the Rigidbody2D component and sets interpolation mode based on inspector settings.
+    /// Initializes required components and sets Rigidbody2D interpolation mode based on inspector settings.
     /// </summary>
     private void Awake()
     {
@@ -77,6 +93,11 @@ public sealed class PlayerController : MonoBehaviour
         _rb.linearVelocity = new Vector2(targetSpeed, _rb.linearVelocity.y);
     }
 
+    /// <summary>
+    /// Unity callback invoked when the GameObject starts colliding with another 2D collider.
+    /// Sets the grounded state to true if the collided object is on the ground layer.
+    /// </summary>
+    /// <param name="collision">Collision data associated with the contact.</param>
     private void OnCollisionEnter2D(Collision2D collision)
     {
         int colLayer = collision.gameObject.layer;
@@ -89,6 +110,11 @@ public sealed class PlayerController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Unity callback invoked when the GameObject stops colliding with another 2D collider.
+    /// Sets the grounded state to false if the object exited was on the ground layer.
+    /// </summary>
+    /// <param name="collision">Collision data associated with the contact.</param>
     private void OnCollisionExit2D(Collision2D collision)
     {
         int colLayer = collision.gameObject.layer;
@@ -124,11 +150,17 @@ public sealed class PlayerController : MonoBehaviour
 
 
 #if UNITY_EDITOR
+
+    /// <summary>
+    /// Unity Editor callback invoked when a value is changed in the Inspector.
+    /// Ensures walk speed and run multiplier remain within valid bounds.
+    /// </summary>
     private void OnValidate()
     {
         walkSpeed = Mathf.Max(0f, walkSpeed);
         runSpeed = Mathf.Clamp(runSpeed, 1f, 10f);
     }
+
 #endif
 
     #endregion
