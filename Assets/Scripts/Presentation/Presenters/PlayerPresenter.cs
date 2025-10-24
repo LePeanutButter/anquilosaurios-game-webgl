@@ -7,7 +7,7 @@ using UnityEngine.InputSystem;
 /// Supports walking, running, jumping, and ground detection.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
-public sealed class PlayerController : MonoBehaviour
+public sealed class PlayerPresenter : MonoBehaviour
 {
     #region Inspector Fields
 
@@ -21,6 +21,8 @@ public sealed class PlayerController : MonoBehaviour
     private bool useInterpolation = true;
     [SerializeField, Tooltip("Layer mask used to detect what counts as ground.")]
     private LayerMask groundLayer = ~0;
+    [SerializeField, Tooltip("Time in seconds between health updates.")]
+    private float healthTickInterval = 1f;
 
     #endregion
 
@@ -28,9 +30,11 @@ public sealed class PlayerController : MonoBehaviour
 
     private Rigidbody2D _rb;
     private Collider2D _collider;
+    private PlayerController _domainController;
     private Vector2 _moveInput;
     private bool _isRunning;
     private bool _isGrounded;
+    private float _tickTimer;
 
     #endregion
 
@@ -52,7 +56,12 @@ public sealed class PlayerController : MonoBehaviour
     public bool IsGrounded => _isGrounded;
     #endregion
 
-    #region Unity Callbacks
+    #region Initialization
+
+    public void Initialize(PlayerController domainController)
+    {
+        _domainController = domainController;
+    }
 
     /// <summary>
     /// Unity callback invoked when the script instance is being loaded.
@@ -82,6 +91,10 @@ public sealed class PlayerController : MonoBehaviour
             : RigidbodyInterpolation2D.None;
     }
 
+    #endregion
+
+    #region Unity Callbacks
+
     /// <summary>
     /// Unity callback invoked at a fixed time interval, used for physics updates.
     /// Applies horizontal movement to the Rigidbody2D based on input and current speed.
@@ -92,6 +105,64 @@ public sealed class PlayerController : MonoBehaviour
         float targetSpeed = horizontal * CurrentSpeed;
         _rb.linearVelocity = new Vector2(targetSpeed, _rb.linearVelocity.y);
     }
+
+    // TODO: TEMPORARY — This Start() method is only used for manual initialization during early development.
+    // Once dependency injection or a proper bootstrap system is implemented,
+    // remove this method AND also remove the related assembly references ("Entities" and "Services")
+    // from the Presenters.asmdef file.
+    private void Start()
+    {
+        Player player = new Player();
+        IPlayerService service = new PlayerService();
+        _domainController = new PlayerController(player, service);
+    }
+
+    private void Update()
+    {
+        if (_domainController == null)
+            return;
+
+        _tickTimer += Time.deltaTime;
+        if (_tickTimer >= healthTickInterval)
+        {
+            _tickTimer = 0f;
+
+            _domainController.Tick(IsMoving);
+
+            int currentHealth = _domainController.GetHealth();
+            Debug.Log($"Player {_domainController.GetId()} health: {currentHealth}");
+
+            if (!_domainController.IsAlive())
+            {
+                HandleDeath();
+            }
+        }
+    }
+
+    private void HandleDeath()
+    {
+        Debug.Log($"Player {_domainController.GetId()} has died.");
+        enabled = false;
+        // TODO: Trigger animation, notify game manager, etc.
+    }
+
+#if UNITY_EDITOR
+
+    /// <summary>
+    /// Unity Editor callback invoked when a value is changed in the Inspector.
+    /// Ensures walk speed and run multiplier remain within valid bounds.
+    /// </summary>
+    private void OnValidate()
+    {
+        walkSpeed = Mathf.Max(0f, walkSpeed);
+        runSpeed = Mathf.Clamp(runSpeed, 1f, 10f);
+    }
+
+#endif
+
+    #endregion
+
+    #region Collision Detection
 
     /// <summary>
     /// Unity callback invoked when the GameObject starts colliding with another 2D collider.
@@ -124,44 +195,6 @@ public sealed class PlayerController : MonoBehaviour
             _isGrounded = false;
         }
     }
-
-    /// <summary>
-    /// Updates the player's facing direction based on horizontal input.
-    /// Flips the local scale on X axis only when direction changes.
-    /// </summary>
-    /// <param name="input">Movement input vector.</param>
-    private void SetFacingDirection(Vector2 input)
-    {
-        float direction = input.x;
-
-        if (Mathf.Approximately(direction, 0f))
-            return;
-
-        float currentScaleX = transform.localScale.x;
-        float desiredScaleX = Mathf.Sign(direction) * Mathf.Abs(currentScaleX);
-
-        if (!Mathf.Approximately(currentScaleX, desiredScaleX))
-        {
-            Vector3 newScale = transform.localScale;
-            newScale.x = desiredScaleX;
-            transform.localScale = newScale;
-        }
-    }
-
-
-#if UNITY_EDITOR
-
-    /// <summary>
-    /// Unity Editor callback invoked when a value is changed in the Inspector.
-    /// Ensures walk speed and run multiplier remain within valid bounds.
-    /// </summary>
-    private void OnValidate()
-    {
-        walkSpeed = Mathf.Max(0f, walkSpeed);
-        runSpeed = Mathf.Clamp(runSpeed, 1f, 10f);
-    }
-
-#endif
 
     #endregion
 
@@ -212,6 +245,29 @@ public sealed class PlayerController : MonoBehaviour
             float horizontalVelocity = _rb.linearVelocity.x;
             _rb.linearVelocity = new Vector2(horizontalVelocity, jumpVelocity);
             _isGrounded = false;
+        }
+    }
+
+    /// <summary>
+    /// Updates the player's facing direction based on horizontal input.
+    /// Flips the local scale on X axis only when direction changes.
+    /// </summary>
+    /// <param name="input">Movement input vector.</param>
+    private void SetFacingDirection(Vector2 input)
+    {
+        float direction = input.x;
+
+        if (Mathf.Approximately(direction, 0f))
+            return;
+
+        float currentScaleX = transform.localScale.x;
+        float desiredScaleX = Mathf.Sign(direction) * Mathf.Abs(currentScaleX);
+
+        if (!Mathf.Approximately(currentScaleX, desiredScaleX))
+        {
+            Vector3 newScale = transform.localScale;
+            newScale.x = desiredScaleX;
+            transform.localScale = newScale;
         }
     }
 

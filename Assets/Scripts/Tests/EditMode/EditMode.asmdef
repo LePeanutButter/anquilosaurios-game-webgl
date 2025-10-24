@@ -5,7 +5,7 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "Unity.InputSystem",
-        "Scripts"
+        "Presenters"
     ],
     "includePlatforms": [
         "Editor"
