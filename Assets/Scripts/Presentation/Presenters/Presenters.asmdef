@@ -4,6 +4,7 @@
 		"Unity.InputSystem",
 		"Entities",
 		"Services",
-		"Controllers"
+		"Controllers",
+		"HUD"
 	]
 }

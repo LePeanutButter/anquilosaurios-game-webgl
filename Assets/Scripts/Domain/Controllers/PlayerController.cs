@@ -51,6 +51,12 @@ public class PlayerController
     public int GetHealth() => _playerService.GetCurrentHealth(_player);
 
     /// <summary>
+    /// Retrieves the maximum possible health value of the player.
+    /// </summary>
+    /// <returns>The player's maximum health.</returns>
+    public int GetMaxHealth() => _playerService.GetMaxHealth(_player);
+
+    /// <summary>
     /// Retrieves the unique identifier assigned to the player.
     /// </summary>
     /// <returns>The player's ID string.</returns>

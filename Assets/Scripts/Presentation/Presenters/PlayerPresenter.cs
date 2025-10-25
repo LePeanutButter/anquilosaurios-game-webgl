@@ -31,6 +31,7 @@ public sealed class PlayerPresenter : MonoBehaviour
     private Rigidbody2D _rb;
     private Collider2D _collider;
     private PlayerController _domainController;
+    private HealthBarHUD _healthBarHUD;
     private Vector2 _moveInput;
     private bool _isRunning;
     private bool _isGrounded;
@@ -58,10 +59,23 @@ public sealed class PlayerPresenter : MonoBehaviour
 
     #region Initialization
 
-    public void Initialize(PlayerController domainController)
+    /// <summary>
+    /// Initializes the player controller and health bar HUD components for the current instance.
+    /// This method should be called during the setup phase to establish necessary gameplay references.
+    /// </summary>
+    /// <param name="domainController">The player controller managing player-specific logic and interactions.</param>
+    /// <param name="hud">The health bar HUD component responsible for displaying the player's health status.</param>
+    public void Initialize(PlayerController domainController, HealthBarHUD hud)
     {
         _domainController = domainController;
+        _healthBarHUD = hud;
+
+        if (_healthBarHUD != null && _domainController != null)
+        {
+            _healthBarHUD.SetHealth(_domainController.GetHealth(), _domainController.GetMaxHealth());
+        }
     }
+
 
     /// <summary>
     /// Unity callback invoked when the script instance is being loaded.
@@ -106,20 +120,9 @@ public sealed class PlayerPresenter : MonoBehaviour
         _rb.linearVelocity = new Vector2(targetSpeed, _rb.linearVelocity.y);
     }
 
-    // TODO: TEMPORARY — This Start() method is only used for manual initialization during early development.
-    // Once dependency injection or a proper bootstrap system is implemented,
-    // remove this method AND also remove the related assembly references ("Entities" and "Services")
-    // from the Presenters.asmdef file.
-    private void Start()
-    {
-        Player player = new Player();
-        IPlayerService service = new PlayerService();
-        _domainController = new PlayerController(player, service);
-    }
-
     private void Update()
     {
-        if (_domainController == null)
+        if (_domainController == null || _healthBarHUD == null)
             return;
 
         _tickTimer += Time.deltaTime;
@@ -130,7 +133,8 @@ public sealed class PlayerPresenter : MonoBehaviour
             _domainController.Tick(IsMoving);
 
             int currentHealth = _domainController.GetHealth();
-            Debug.Log($"Player {_domainController.GetId()} health: {currentHealth}");
+            int maxHealth = _domainController.GetMaxHealth();
+            _healthBarHUD.SetHealth(currentHealth, maxHealth);
 
             if (!_domainController.IsAlive())
             {
