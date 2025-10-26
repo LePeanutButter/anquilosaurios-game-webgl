@@ -8,11 +8,10 @@ using UnityEngine.UI;
 public class HealthBarHUD : MonoBehaviour
 {
     public Slider healthBar;
-    public int maxHealth;
-    public int currentHealth;
+    public float maxHealth;
+    public float currentHealth;
     private bool _initialized = false;
     private float _visualValue = 1f;
-    private float _lerpSpeed = 5f;
 
     private void Awake()
     {
@@ -57,10 +56,7 @@ public class HealthBarHUD : MonoBehaviour
         if (!_initialized || healthBar == null || maxHealth == 0)
             return;
 
-        float currentSliderValue = healthBar.value;
-        float targetValue = _visualValue;
-
-        healthBar.value = Mathf.Lerp(currentSliderValue, targetValue, Time.deltaTime * _lerpSpeed);
+        healthBar.value = _visualValue;
     }
 
     /// <summary>
@@ -68,15 +64,15 @@ public class HealthBarHUD : MonoBehaviour
     /// </summary>
     /// <param name="current">The current health value.</param>
     /// <param name="max">The maximum health value.</param>
-    public void SetHealth(int current, int max)
+    public void SetHealth(float current, float max)
     {
         if (!_initialized || healthBar == null)
             return;
 
-        if (max <= 0) max = 1;
+        if (max <= 0f) max = 1f;
         maxHealth = max;
-        currentHealth = Mathf.Clamp(current, 0, maxHealth);
+        currentHealth = Mathf.Clamp(current, 0f, maxHealth);
 
-        _visualValue = (float)currentHealth / maxHealth;
+        _visualValue = currentHealth / maxHealth;
     }
 }

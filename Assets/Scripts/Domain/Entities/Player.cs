@@ -1,3 +1,5 @@
+using UnityEngine;
+
 /// <summary>
 /// Represents a player entity with an optional ID and health management.
 /// </summary>
@@ -11,23 +13,23 @@ public class Player
     /// <summary>
     /// Current health value of the player.
     /// </summary>
-    public int Health { get; private set; }
+    public float Health { get; private set; }
 
     /// <summary>
     /// Maximum health value of the player. Always returns 100.
     /// </summary>
-    public int MaxHealth => 100;
+    public float MaxHealth => 100f;
 
     /// <summary>
     /// Initializes a new player with default health value of 100.
     /// </summary>
-    public Player() : this(100) { }
+    public Player() : this(100f) { }
 
     /// <summary>
     /// Initializes a new player with a given health value.
     /// </summary>
     /// <param name="initialHealth">Initial health value.</param>
-    public Player(int initialHealth)
+    public Player(float initialHealth)
     {
         Health = initialHealth;
     }
@@ -45,8 +47,8 @@ public class Player
     /// Updates the player's health.
     /// </summary>
     /// <param name="value">New health value.</param>
-    public void SetHealth(int value)
+    public void SetHealth(float value)
     {
-        Health = value;
+        Health = Mathf.Clamp(value, 0f, MaxHealth);
     }
 }

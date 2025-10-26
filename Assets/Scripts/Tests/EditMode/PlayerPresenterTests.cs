@@ -13,7 +13,6 @@ public class PlayerPresenterTests
         _playerObject = new GameObject("Player");
         _playerObject.AddComponent<BoxCollider2D>();
         _presenter = _playerObject.AddComponent<PlayerPresenter>();
-
         _presenter.Invoke("Awake", 0f);
     }
 
@@ -87,6 +86,4 @@ public class PlayerPresenterTests
 
         Assert.AreEqual(14.4f, _presenter.CurrentSpeed);
     }
-
-
 }

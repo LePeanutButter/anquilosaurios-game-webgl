@@ -16,13 +16,13 @@ public sealed class PlayerPresenter : MonoBehaviour
     [SerializeField, Tooltip("Run speed multiplier."), Range(1f, 5f)]
     private float runSpeed = 1.8f;
     [SerializeField, Tooltip("Velocidad vertical inicial del salto (unidades/seg).")]
-    private float jumpVelocity = 6f;
+    private float jumpVelocity = 8f;
     [SerializeField, Tooltip("Enable Rigidbody2D interpolation for smooth movement.")]
     private bool useInterpolation = true;
     [SerializeField, Tooltip("Layer mask used to detect what counts as ground.")]
     private LayerMask groundLayer = ~0;
-    [SerializeField, Tooltip("Time in seconds between health updates.")]
-    private float healthTickInterval = 1f;
+    [SerializeField] private Transform groundCheckPoint;
+    [SerializeField] private float groundCheckRadius = 0.1f;
 
     #endregion
 
@@ -35,16 +35,12 @@ public sealed class PlayerPresenter : MonoBehaviour
     private Vector2 _moveInput;
     private bool _isRunning;
     private bool _isGrounded;
-    private float _tickTimer;
+    private float _stopTimer = 0f;
+    private const float StopDelay = 0.1f;
 
     #endregion
 
     #region Public Properties
-
-    /// <summary>
-    /// Indicates whether the player is currently moving.
-    /// </summary>
-    public bool IsMoving { get; private set; }
 
     /// <summary>
     /// Current movement speed based on walk speed and run multiplier.
@@ -115,6 +111,8 @@ public sealed class PlayerPresenter : MonoBehaviour
     /// </summary>
     private void FixedUpdate()
     {
+        CheckGrounded();
+
         float horizontal = _moveInput.x;
         float targetSpeed = horizontal * CurrentSpeed;
         _rb.linearVelocity = new Vector2(targetSpeed, _rb.linearVelocity.y);
@@ -125,21 +123,28 @@ public sealed class PlayerPresenter : MonoBehaviour
         if (_domainController == null || _healthBarHUD == null)
             return;
 
-        _tickTimer += Time.deltaTime;
-        if (_tickTimer >= healthTickInterval)
+        bool isMoving = IsMoving();
+        if (!isMoving)
         {
-            _tickTimer = 0f;
+            _stopTimer += Time.deltaTime;
+        }
+        else
+        {
+            _stopTimer = 0f;
+        }
 
-            _domainController.Tick(IsMoving);
+        if (isMoving || _stopTimer >= StopDelay)
+        {
+            _domainController.Tick(isMoving, Time.deltaTime);
+        }
 
-            int currentHealth = _domainController.GetHealth();
-            int maxHealth = _domainController.GetMaxHealth();
-            _healthBarHUD.SetHealth(currentHealth, maxHealth);
+        float currentHealth = _domainController.GetHealth();
+        float maxHealth = _domainController.GetMaxHealth();
+        _healthBarHUD.SetHealth(currentHealth, maxHealth);
 
-            if (!_domainController.IsAlive())
-            {
-                HandleDeath();
-            }
+        if (!_domainController.IsAlive())
+        {
+            HandleDeath();
         }
     }
 
@@ -149,6 +154,20 @@ public sealed class PlayerPresenter : MonoBehaviour
         enabled = false;
         // TODO: Trigger animation, notify game manager, etc.
     }
+
+    /// <summary>
+    /// Returns true if the player is effectively idle.
+    /// </summary>
+    public bool IsMoving(float velocityThreshold = 0.05f)
+    {
+        if (_rb == null) return true;
+
+        float horizontal = Mathf.Abs(_rb.linearVelocity.x);
+        float vertical = Mathf.Abs(_rb.linearVelocity.y);
+
+        return !(horizontal < velocityThreshold && vertical < velocityThreshold);
+    }
+
 
 #if UNITY_EDITOR
 
@@ -168,36 +187,67 @@ public sealed class PlayerPresenter : MonoBehaviour
 
     #region Collision Detection
 
-    /// <summary>
-    /// Unity callback invoked when the GameObject starts colliding with another 2D collider.
-    /// Sets the grounded state to true if the collided object is on the ground layer.
-    /// </summary>
-    /// <param name="collision">Collision data associated with the contact.</param>
-    private void OnCollisionEnter2D(Collision2D collision)
+    private void CheckGrounded()
     {
-        int colLayer = collision.gameObject.layer;
-        string layerName = LayerMask.LayerToName(colLayer);
-        bool isGroundLayerMatch = ((1 << colLayer) & groundLayer) != 0;
+        _isGrounded = Physics2D.OverlapCircle(groundCheckPoint.position, groundCheckRadius, groundLayer);
+    }
 
-        if (isGroundLayerMatch)
+
+    /// <summary>
+    /// Unity callback invoked when another collider enters this GameObject's trigger collider.
+    /// If the other object is on the "Lethal" layer, triggers the lethal collision handler.
+    /// </summary>
+    /// <param name="other">The collider that entered the trigger.</param>
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.gameObject.layer == LayerMask.NameToLayer("Lethal"))
         {
-            _isGrounded = true;
+            HandleLethalCollision(other.gameObject);
         }
     }
 
     /// <summary>
-    /// Unity callback invoked when the GameObject stops colliding with another 2D collider.
-    /// Sets the grounded state to false if the object exited was on the ground layer.
+    /// Handles the logic when the player collides with a lethal object.
+    /// Attempts to invoke a "Kill" method on the domain controller, or sets health to 0.
+    /// Updates the health bar HUD and triggers death handling.
     /// </summary>
-    /// <param name="collision">Collision data associated with the contact.</param>
-    private void OnCollisionExit2D(Collision2D collision)
+    /// <param name="lethalObject">The lethal GameObject that caused the collision.</param>
+    private void HandleLethalCollision(GameObject lethalObject)
     {
-        int colLayer = collision.gameObject.layer;
+        Debug.Log($"Player collided with lethal object '{lethalObject.name}' (layer Lethal).");
 
-        if (((1 << colLayer) & groundLayer) != 0)
+        var killMethod = _domainController?.GetType().GetMethod("Kill", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        if (killMethod != null)
         {
-            _isGrounded = false;
+            killMethod.Invoke(_domainController, null);
         }
+        else
+        {
+            var healthField = _domainController?.GetType().GetField("_health", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var getHealthMethod = _domainController?.GetType().GetMethod("GetHealth", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+            if (healthField != null)
+            {
+                healthField.SetValue(_domainController, 0);
+            }
+            else if (getHealthMethod != null)
+            {
+                var setHealthMethod = _domainController?.GetType().GetMethod("SetHealth", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                if (setHealthMethod != null)
+                {
+                    setHealthMethod.Invoke(_domainController, new object[] { 0 });
+                }
+            }
+        }
+
+        if (_healthBarHUD != null && _domainController != null)
+        {
+            int currentHealth = _domainController.GetType().GetMethod("GetHealth")?.Invoke(_domainController, null) is int ch ? ch : 0;
+            int maxHealth = _domainController.GetType().GetMethod("GetMaxHealth")?.Invoke(_domainController, null) is int mh ? mh : 0;
+            _healthBarHUD.SetHealth(currentHealth, maxHealth);
+        }
+
+        HandleDeath();
     }
 
     #endregion
@@ -211,8 +261,6 @@ public sealed class PlayerPresenter : MonoBehaviour
     public void OnMove(InputAction.CallbackContext context)
     {
         _moveInput = context.ReadValue<Vector2>();
-        IsMoving = !Mathf.Approximately(_moveInput.x, 0f);
-
         SetFacingDirection(_moveInput);
     }
 

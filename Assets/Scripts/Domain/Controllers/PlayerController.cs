@@ -25,15 +25,16 @@ public class PlayerController
     /// Applies linear recovery if moving, or exponential damage if idle.
     /// </summary>
     /// <param name="isMoving">Indicates whether the player is currently moving.</param>
-    public void Tick(bool isMoving)
+    /// /// <param name="deltaTime">Time elapsed since last tick (seconds).</param>
+    public void Tick(bool isMoving, float deltaTime)
     {
         if (isMoving)
         {
-            _playerService.ApplyLinearRecovery(_player, _player.MaxHealth);
+            _playerService.ApplyLinearRecovery(_player, _player.MaxHealth, deltaTime);
         }
         else
         {
-            _playerService.ApplyExponentialDamage(_player);
+            _playerService.ApplyExponentialDamage(_player, deltaTime);
         }
     }
 
@@ -48,13 +49,13 @@ public class PlayerController
     /// Retrieves the current health value of the player.
     /// </summary>
     /// <returns>The player's current health.</returns>
-    public int GetHealth() => _playerService.GetCurrentHealth(_player);
+    public float GetHealth() => _playerService.GetCurrentHealth(_player);
 
     /// <summary>
     /// Retrieves the maximum possible health value of the player.
     /// </summary>
     /// <returns>The player's maximum health.</returns>
-    public int GetMaxHealth() => _playerService.GetMaxHealth(_player);
+    public float GetMaxHealth() => _playerService.GetMaxHealth(_player);
 
     /// <summary>
     /// Retrieves the unique identifier assigned to the player.

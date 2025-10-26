@@ -22,7 +22,8 @@ public interface IPlayerService
     /// The damage increases exponentially based on a predefined formula or condition.
     /// </summary>
     /// <param name="player">The player to apply damage to.</param>
-    void ApplyExponentialDamage(Player player);
+    /// <param name="tickInterval">Time in seconds since the last tick.</param>
+    void ApplyExponentialDamage(Player player, float tickInterval);
 
     /// <summary>
     /// Applies linear recovery to the player's health.
@@ -30,19 +31,20 @@ public interface IPlayerService
     /// </summary>
     /// <param name="player">The player to recover health for.</param>
     /// <param name="maxHealth">The maximum health value the player can reach.</param>
-    void ApplyLinearRecovery(Player player, int maxHealth);
+    /// <param name="tickInterval">Time in seconds since the last tick.</param>
+    void ApplyLinearRecovery(Player player, float maxHealth, float tickInterval);
 
     /// <summary>
     /// Retrieves the current health value of the specified player.
     /// </summary>
     /// <param name="player">The player whose current health is to be retrieved.</param>
     /// <returns>The current health value of the player.</returns>
-    int GetCurrentHealth(Player player);
+    float GetCurrentHealth(Player player);
 
     /// <summary>
     /// Retrieves the maximum health value of the specified player.
     /// </summary>
     /// <param name="player">The player whose maximum health is to be retrieved.</param>
     /// <returns>The maximum health value of the player.</returns>
-    int GetMaxHealth(Player player);
+    float GetMaxHealth(Player player);
 }
