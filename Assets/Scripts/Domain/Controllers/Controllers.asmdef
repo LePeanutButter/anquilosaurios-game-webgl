@@ -1,0 +1,7 @@
+{
+    "name": "Controllers",
+    "references": [
+        "Entities",
+        "Services"
+    ]
+}

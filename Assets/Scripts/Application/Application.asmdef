@@ -1,0 +1,10 @@
+{
+	"name": "Application",
+	"references": [
+        "Entities",
+        "Services",
+        "Controllers",
+        "Presenters",
+        "HUD"
+    ]
+}

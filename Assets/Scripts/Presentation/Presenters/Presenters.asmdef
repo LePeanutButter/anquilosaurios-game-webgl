@@ -1,0 +1,10 @@
+{
+	"name": "Presenters",
+	"references": [
+		"Unity.InputSystem",
+		"Entities",
+		"Services",
+		"Controllers",
+		"HUD"
+	]
+}
