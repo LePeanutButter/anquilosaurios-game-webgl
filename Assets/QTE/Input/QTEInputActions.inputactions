@@ -16,9 +16,27 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Submit",
+                    "name": "Player1_Submit",
                     "type": "Button",
                     "id": "a0148764-9447-47c8-abd9-dca659b32c67",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Player2_Submit",
+                    "type": "Button",
+                    "id": "197d9814-be42-4e00-bc90-c66f2d09c277",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Player3_Submit",
+                    "type": "Button",
+                    "id": "16e42867-58ea-472c-9f2b-5980f30b8bf5",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -44,7 +62,29 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "Submit",
+                    "action": "Player1_Submit",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "2d11c69c-96ea-4f35-917b-0dad5141c103",
+                    "path": "<Keyboard>/#(R)",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Player2_Submit",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "1dd68d9e-323b-4e96-96ba-f71fdcd38d80",
+                    "path": "<Keyboard>/#(T)",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Player3_Submit",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }
