@@ -1,10 +1,20 @@
 {
-	"name": "Application",
-	"references": [
-        "Entities",
-        "Services",
-        "Controllers",
-        "Presenters",
-        "HUD"
-    ]
+    "name": "Application",
+    "references": [
+        "Domain",
+        "Unity.TextMeshPro",
+        "Unity.Services.Core",
+        "Unity.Services.Multiplayer",
+        "Unity.Services.Authentication",
+        "Unity.Services.Lobbies",
+        "Unity.Netcode.Runtime",
+        "Unity.Collections",
+        "Enums"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true
 }
