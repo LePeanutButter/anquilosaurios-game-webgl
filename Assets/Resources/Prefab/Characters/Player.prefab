@@ -42,6 +42,7 @@ GameObject:
   - component: {fileID: 1600979205038875407}
   - component: {fileID: 8216236282939486146}
   - component: {fileID: 272203567228415391}
+  - component: {fileID: -3725684373048032681}
   - component: {fileID: 8348575308057120485}
   - component: {fileID: 2205661803709767447}
   - component: {fileID: -3065196340252306378}
@@ -116,15 +117,15 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 1
-  m_Sprite: {fileID: -646208900, guid: 02a3a920c85e50e4c927cc7c8ebc16f9, type: 3}
+  m_Sprite: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 8.001954, y: 8}
+  m_Size: {x: 1, y: 1}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!50 &272203567228415391
@@ -154,6 +155,31 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 4
+--- !u!114 &-3725684373048032681
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7677004314925365782}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 209551358
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!114 &8348575308057120485
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -166,6 +192,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cd1535ed243d06d47bbca7bfdeea43ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
+  ShowTopMostFoldoutHeaderGroup: 1
   walkSpeed: 10
   runSpeed: 1.2
   jumpVelocity: 8
@@ -175,6 +202,7 @@ MonoBehaviour:
     m_Bits: 64
   groundCheckPoint: {fileID: 572655738322768948}
   groundCheckRadius: 0.1
+  animator: {fileID: 0}
 --- !u!114 &2205661803709767447
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -303,7 +331,7 @@ Animator:
   m_GameObject: {fileID: 7677004314925365782}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 6289296c4e0c3e94ba4637cef4cff1d1, type: 2}
+  m_Controller: {fileID: 0}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -354,7 +382,7 @@ BoxCollider2D:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
     oldSize: {x: 8.001954, y: 8}
-    newSize: {x: 8.001954, y: 8}
+    newSize: {x: 1, y: 1}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
     adaptiveTiling: 0

@@ -1,0 +1,11 @@
+{
+	"name": "Presentation",
+	"references": [
+		"Unity.InputSystem",
+		"Unity.Netcode.Runtime",
+        "Unity.Collections",
+		"Application",
+		"Enums",
+		"Shared"
+	]
+}

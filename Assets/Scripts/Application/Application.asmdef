@@ -1,7 +1,6 @@
 {
     "name": "Application",
     "references": [
-        "Domain",
         "Unity.TextMeshPro",
         "Unity.Services.Core",
         "Unity.Services.Multiplayer",
@@ -9,7 +8,8 @@
         "Unity.Services.Lobbies",
         "Unity.Netcode.Runtime",
         "Unity.Collections",
-        "Enums"
+        "Enums",
+        "Shared"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
