@@ -115,8 +115,8 @@ TextureImporter:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 512
-        height: 512
+        width: 64
+        height: 64
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -125,8 +125,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: f9e5b2f49b338ff478eae8f86e57fe96
-      internalID: 1050596359
+      spriteID: fee1fbf9c0bcd9a4ca9b83a428e4fbf9
+      internalID: 1065982593
       vertices: []
       indices: 
       edges: []
@@ -135,10 +135,10 @@ TextureImporter:
       name: Girasol flor idle-Sheet_1
       rect:
         serializedVersion: 2
-        x: 512
+        x: 64
         y: 0
-        width: 512
-        height: 512
+        width: 64
+        height: 64
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -147,8 +147,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 92b31086ea555934ba09cce668d852f1
-      internalID: -1692117182
+      spriteID: 5de72cb1c12d6b4449fbea040324b777
+      internalID: -208814999
       vertices: []
       indices: 
       edges: []
@@ -157,10 +157,10 @@ TextureImporter:
       name: Girasol flor idle-Sheet_2
       rect:
         serializedVersion: 2
-        x: 1024
+        x: 128
         y: 0
-        width: 512
-        height: 512
+        width: 64
+        height: 64
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -169,8 +169,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 4a5baeadf14813043a284b41311b6eaa
-      internalID: -266425361
+      spriteID: 4e79cc6510ec4da4d89020f7476773c6
+      internalID: -1725173864
       vertices: []
       indices: 
       edges: []
@@ -179,10 +179,10 @@ TextureImporter:
       name: Girasol flor idle-Sheet_3
       rect:
         serializedVersion: 2
-        x: 1536
+        x: 192
         y: 0
-        width: 512
-        height: 512
+        width: 64
+        height: 64
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -191,8 +191,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: bcd943c6c9390174d9afe4c8233435b2
-      internalID: -1547366384
+      spriteID: 2d80790345d15464a81cf142511f1e80
+      internalID: -178254231
       vertices: []
       indices: 
       edges: []
@@ -201,10 +201,10 @@ TextureImporter:
       name: Girasol flor idle-Sheet_4
       rect:
         serializedVersion: 2
-        x: 2048
+        x: 256
         y: 0
-        width: 512
-        height: 512
+        width: 64
+        height: 64
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -213,8 +213,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 4e0c9799131ff8146b1ea5c8d2e58960
-      internalID: -1281408314
+      spriteID: 2ea81fbe64070e148ab8c4207cc7d73d
+      internalID: 117575827
       vertices: []
       indices: 
       edges: []
@@ -223,10 +223,10 @@ TextureImporter:
       name: Girasol flor idle-Sheet_5
       rect:
         serializedVersion: 2
-        x: 2560
+        x: 320
         y: 0
-        width: 512
-        height: 512
+        width: 64
+        height: 64
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -235,8 +235,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 6e897dacac775f442a8f66793de05118
-      internalID: 1899227885
+      spriteID: 4b8ebd49a9dcdfc49a37c9b8bfb369e2
+      internalID: -1161386568
       vertices: []
       indices: 
       edges: []
@@ -245,10 +245,10 @@ TextureImporter:
       name: Girasol flor idle-Sheet_6
       rect:
         serializedVersion: 2
-        x: 3072
+        x: 384
         y: 0
-        width: 512
-        height: 512
+        width: 64
+        height: 64
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -257,8 +257,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 08c95bccb262e804d917bfcbfb3ca910
-      internalID: 1397826485
+      spriteID: 011dd4f83c068854dadc0d7e3ce24527
+      internalID: 445626321
       vertices: []
       indices: 
       edges: []
@@ -267,10 +267,10 @@ TextureImporter:
       name: Girasol flor idle-Sheet_7
       rect:
         serializedVersion: 2
-        x: 3584
+        x: 448
         y: 0
-        width: 512
-        height: 512
+        width: 64
+        height: 64
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -279,8 +279,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 51d0b61fdbc89cd499b39a96e310c281
-      internalID: 1622205663
+      spriteID: 5563a5deffc9a80478a7c41295182665
+      internalID: -1238108348
       vertices: []
       indices: 
       edges: []
@@ -289,7 +289,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: cbc79463510b8e64f9e065073747420c
+    spriteID: fb8e1cda15625f844837c663f8c9530a
     internalID: 0
     vertices: []
     indices: 
@@ -299,16 +299,16 @@ TextureImporter:
     spriteCustomMetadata:
       entries:
       - key: SpriteEditor.SliceSettings
-        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":512.0,"y":512.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":1,"keepEmptyRects":false,"isAlternate":false}'
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":1,"keepEmptyRects":false,"isAlternate":false}'
     nameFileIdTable:
-      Girasol flor idle-Sheet_0: 1050596359
-      Girasol flor idle-Sheet_1: -1692117182
-      Girasol flor idle-Sheet_2: -266425361
-      Girasol flor idle-Sheet_3: -1547366384
-      Girasol flor idle-Sheet_4: -1281408314
-      Girasol flor idle-Sheet_5: 1899227885
-      Girasol flor idle-Sheet_6: 1397826485
-      Girasol flor idle-Sheet_7: 1622205663
+      Girasol flor idle-Sheet_0: 1065982593
+      Girasol flor idle-Sheet_1: -208814999
+      Girasol flor idle-Sheet_2: -1725173864
+      Girasol flor idle-Sheet_3: -178254231
+      Girasol flor idle-Sheet_4: 117575827
+      Girasol flor idle-Sheet_5: -1161386568
+      Girasol flor idle-Sheet_6: 445626321
+      Girasol flor idle-Sheet_7: -1238108348
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

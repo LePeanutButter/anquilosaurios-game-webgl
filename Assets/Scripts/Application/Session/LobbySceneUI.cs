@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class LobbySceneUI : MonoBehaviour
@@ -126,7 +127,6 @@ public class LobbySceneUI : MonoBehaviour
         cardUI.Setup(playerName, assignedChar);
         playerCards[clientId] = cardUI;
 
-        // Suscribirse a cambios
         playerState.PlayerName.OnValueChanged += (prev, curr) =>
         {
             if (playerCards.TryGetValue(clientId, out var card))
@@ -206,10 +206,9 @@ public class LobbySceneUI : MonoBehaviour
                 return;
             }
 
-            var sceneManager = NetworkManager.Singleton.SceneManager;
-            if (sceneManager != null)
+            if (NetworkManager.Singleton.SceneManager != null)
             {
-                sceneManager.LoadScene("GameScene", UnityEngine.SceneManagement.LoadSceneMode.Single);
+                NetworkManager.Singleton.SceneManager.LoadScene("RoundInterface", LoadSceneMode.Single);
             }
             else
             {

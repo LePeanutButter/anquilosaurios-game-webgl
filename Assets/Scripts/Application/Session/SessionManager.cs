@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -54,34 +55,22 @@ public class SessionManager : NetworkBehaviour
         DontDestroyOnLoad(gameObject);
 
         allCharacters = Enum.GetValues(typeof(CharacterType)).Cast<CharacterType>().ToList();
-
-        if (NetworkManager.Singleton != null)
-        {
-            NetworkManager.Singleton.LogLevel = Unity.Netcode.LogLevel.Developer;
-            Debug.Log("NetworkManager log level set to Developer");
-        }
     }
 
-    private void OnEnable()
+    private IEnumerator WaitForNetworkManager()
     {
-        if (NetworkManager.Singleton != null)
-        {
-            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnectedCallback;
-            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
-            NetworkManager.Singleton.OnServerStarted += OnServerStarted;
-            NetworkManager.Singleton.OnServerStopped += OnServerStopped;
-        }
+        yield return new WaitUntil(() => NetworkManager.Singleton != null);
+        RegisterNetworkEvents();
     }
 
-    private void OnDisable()
+    private void RegisterNetworkEvents()
     {
-        if (NetworkManager.Singleton != null)
-        {
-            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnectedCallback;
-            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
-            NetworkManager.Singleton.OnServerStarted -= OnServerStarted;
-            NetworkManager.Singleton.OnServerStopped -= OnServerStopped;
-        }
+        NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnectedCallback;
+        NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
+        NetworkManager.Singleton.OnServerStarted += OnServerStarted;
+        NetworkManager.Singleton.OnServerStopped += OnServerStopped;
+
+        Debug.Log("Network events registered successfully.");
     }
 
     private void OnServerStarted()
@@ -97,10 +86,27 @@ public class SessionManager : NetworkBehaviour
     private void OnClientDisconnected(ulong clientId)
     {
         Debug.LogError($"Client {clientId} disconnected. Server active: {NetworkManager.Singleton.IsServer}");
+
+        if (IsServer)
+        {
+            ReleaseCharacter(clientId);
+            playerCharacterMap.Remove(clientId);
+        }
     }
 
     async void Start()
     {
+        StartCoroutine(WaitForNetworkManager());
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.LogLevel = LogLevel.Developer;
+            Debug.Log("NetworkManager log level set to Developer");
+        }
+        else
+        {
+            Debug.LogWarning("NetworkManager.Singleton no estaba disponible en Start().");
+        }
+
         try
         {
             await InitializeServicesAndSignInAsync();
@@ -142,7 +148,7 @@ public class SessionManager : NetworkBehaviour
         if (!servicesInitialized)
             await InitializeServicesAndSignInAsync();
 
-        var playerProperties = await GetPlayerPropertiesAsync();
+        var playerProperties = await GetPlayerProperties();
 
         var options = new SessionOptions
         {
@@ -191,7 +197,7 @@ public class SessionManager : NetworkBehaviour
         return results.Sessions;
     }
 
-    async Task<Dictionary<string, PlayerProperty>> GetPlayerPropertiesAsync()
+    async Task<Dictionary<string, PlayerProperty>> GetPlayerProperties()
     {
         var playerName = await AuthenticationService.Instance.GetPlayerNameAsync();
         var playerNameProperty = new PlayerProperty(playerName, VisibilityPropertyOptions.Member);
@@ -236,20 +242,25 @@ public class SessionManager : NetworkBehaviour
         CharacterType assigned = GetUniqueCharacter();
         playerCharacterMap[clientId] = assigned;
 
-        string id = authIdByClientId.ContainsKey(clientId) ? authIdByClientId[clientId] : $"Player_{clientId}";
-
-        playerState.InitializeServerRpc(id, playerState.PlayerName.Value.ToString(), (int)assigned);
+        playerState.InitializeDataServer($"Player_{clientId}", (int)assigned);
         Debug.Log($"Servidor inicializó PlayerState del cliente {clientId} con personaje {assigned}");
     }
 
     private CharacterType GetUniqueCharacter()
     {
-        var availableCharacters = allCharacters.Except(assignedCharactersSet).ToList();
+        var availableCharacters = allCharacters
+        .Except(assignedCharactersSet)
+        .Where(c => c != CharacterType.None)
+        .ToList();
 
         if (availableCharacters.Count == 0)
         {
             Debug.LogWarning("No hay personajes disponibles, se reasignará un personaje duplicado.");
-            return allCharacters[UnityEngine.Random.Range(0, allCharacters.Count)];
+
+            var fallbackCharacters = allCharacters
+            .Where(c => c != CharacterType.None)
+            .ToList();
+            return fallbackCharacters[UnityEngine.Random.Range(0, fallbackCharacters.Count)];
         }
 
         var assignedCharacter = availableCharacters[UnityEngine.Random.Range(0, availableCharacters.Count)];
@@ -266,7 +277,7 @@ public class SessionManager : NetworkBehaviour
         }
     }
 
-    private PlayerState GetPlayerStateForClient(ulong clientId)
+    public PlayerState GetPlayerStateForClient(ulong clientId)
     {
         if (NetworkManager.Singleton == null) return null;
         if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var networkClient)) return null;
