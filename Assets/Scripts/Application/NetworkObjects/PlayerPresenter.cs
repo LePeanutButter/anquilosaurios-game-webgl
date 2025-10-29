@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -7,7 +9,7 @@ using UnityEngine.InputSystem;
 /// Uses Unity's Input System and Rigidbody2D for physics-based movement.
 /// Supports walking, running, jumping, and ground detection.
 /// </summary>
-[RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
+[RequireComponent(typeof(Rigidbody2D), typeof(Collider2D), typeof(NetworkTransform))]
 public sealed class PlayerPresenter : NetworkBehaviour
 {
     #region Inspector Fields
@@ -28,6 +30,13 @@ public sealed class PlayerPresenter : NetworkBehaviour
     [SerializeField] private Transform groundCheckPoint;
     [SerializeField] private float groundCheckRadius = 0.1f;
 
+    [Header("Server Authority Settings")]
+    [SerializeField, Tooltip("Rate at which the server synchronizes position and state to non-owners.")]
+    private float serverSyncRate = 0.05f;
+
+    [Header("Health Settings")]
+    [SerializeField] private float maxHealth = 100f;
+
     #endregion
 
     #region Private Fields
@@ -39,25 +48,21 @@ public sealed class PlayerPresenter : NetworkBehaviour
     private Vector2 _moveInput;
     private bool _isRunning;
     private bool _isGrounded;
+    private float _syncTimer;
+    private float _currentHealth;
+    private bool _isAlive = true;
 
-    private readonly NetworkVariable<bool> _isMovingNetwork = new(
-        false,
-        readPerm: NetworkVariableReadPermission.Everyone,
-        writePerm: NetworkVariableWritePermission.Owner);
+    private bool _isMovingSync;
 
-    private readonly NetworkVariable<bool> _isRunningNetwork = new(
-        false,
-        readPerm: NetworkVariableReadPermission.Everyone,
-        writePerm: NetworkVariableWritePermission.Owner);
-
-    private readonly NetworkVariable<bool> _isGroundedNetwork = new(
-        false,
-        readPerm: NetworkVariableReadPermission.Everyone,
-        writePerm: NetworkVariableWritePermission.Owner);
+    private NetworkVariable<Vector3> _networkPosition = new(
+    writePerm: NetworkVariableWritePermission.Server,
+    readPerm: NetworkVariableReadPermission.Everyone);
 
     private static readonly int IsMovingParam = Animator.StringToHash("IsMoving");
     private static readonly int IsRunningParam = Animator.StringToHash("IsRunning");
     private static readonly int IsGroundedParam = Animator.StringToHash("IsGrounded");
+
+    private NetworkTransform _netTransform;
 
     #endregion
 
@@ -78,9 +83,12 @@ public sealed class PlayerPresenter : NetworkBehaviour
     /// </summary>
     public ulong PlayerId => _playerState != null ? _playerState.PlayerId.Value : OwnerClientId;
 
+    public float CurrentHealth => _currentHealth;
+    public bool IsAlive => _isAlive;
+
     #endregion
 
-    #region Initialization
+    #region Initialization & Network Spawn
 
     /// <summary>
     /// Unity callback invoked when the script instance is being loaded.
@@ -117,6 +125,11 @@ public sealed class PlayerPresenter : NetworkBehaviour
             ? RigidbodyInterpolation2D.Interpolate
             : RigidbodyInterpolation2D.None;
 
+        _netTransform = GetComponent<NetworkTransform>();
+        _netTransform.Interpolate = true;
+        _netTransform.SyncPositionX = true;
+        _netTransform.SyncPositionY = true;
+        _netTransform.UseHalfFloatPrecision = false;
     }
 
     public void InitializePresenter(PlayerState state)
@@ -130,21 +143,63 @@ public sealed class PlayerPresenter : NetworkBehaviour
         Debug.Log($"PlayerPresenter: Asignado PlayerState con ClientId: {state.OwnerClientId}");
     }
 
-    #endregion
-
-    #region Unity Callbacks
-
-    /// <summary>
-    /// Called when the object is spawned on the network.
-    /// Check for ownership before enabling control logic.
-    /// </summary>
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
-        if (!IsOwner)
+
+        PlayerInput playerInput = GetComponent<PlayerInput>();
+
+        if (IsOwner)
         {
+            Debug.Log("PlayerPresenter: ¡Soy el dueño de este avatar! (Control Local)");
+            if (playerInput != null)
+            {
+                playerInput.enabled = true;
+            }
+
+            EnableLocalControl();
+            RequestPositionUpdateServerRpc(transform.position);
+        }
+        else
+        {
+            Debug.Log("PlayerPresenter: Soy un cliente remoto. (Sincronización remota)");
+            if (playerInput != null)
+            {
+                playerInput.enabled = false;
+            }
+        }
+
+        if (!IsOwner && !IsServer)
+        {
+            _networkPosition.OnValueChanged += OnNetworkPositionChanged;
         }
     }
+
+    public override void OnNetworkDespawn()
+    {
+        base.OnNetworkDespawn();
+        if (!IsOwner && !IsServer)
+        {
+            _networkPosition.OnValueChanged -= OnNetworkPositionChanged;
+        }
+    }
+
+    private void EnableLocalControl()
+    {
+        // Esto debería habilitar el manejo de input para el dueño local
+        // Asegúrate de que los callbacks de Input (OnMove, OnRun, OnJump) solo se ejecuten si IsOwner es true.
+        // Los métodos de input ya tienen la comprobación !IsOwner return;
+    }
+
+    [ServerRpc]
+    private void RequestPositionUpdateServerRpc(Vector3 newPosition)
+    {
+        _networkPosition.Value = newPosition;
+    }
+
+    #endregion
+
+    #region Unity Callbacks
 
     /// <summary>
     /// Unity callback invoked at a fixed time interval, used for physics updates.
@@ -152,29 +207,50 @@ public sealed class PlayerPresenter : NetworkBehaviour
     /// </summary>
     private void FixedUpdate()
     {
-        CheckGrounded();
+        if (!_isAlive) return;
 
-        if (IsOwner && _isGroundedNetwork.Value != _isGrounded)
-        {
-            _isGroundedNetwork.Value = _isGrounded;
-        }
+        CheckGrounded();
 
         if (IsOwner)
         {
             float horizontal = _moveInput.x;
             float targetSpeed = horizontal * CurrentSpeed;
             _rb.linearVelocity = new Vector2(targetSpeed, _rb.linearVelocity.y);
+
+            if (IsServer)
+            {
+                ServerAuthoritySync();
+            }
+            else
+            {
+                UpdateMovementStateServerRpc(IsMoving(), _isRunning, _isGrounded);
+            }
+        }
+
+        if (IsServer && !IsOwner)
+        {
+            ServerAuthoritySync();
+        }
+    }
+
+    private void ServerAuthoritySync()
+    {
+        _syncTimer += Time.deltaTime;
+
+        if (_syncTimer >= serverSyncRate)
+        {
+            _networkPosition.Value = transform.position;
+
+            UpdateAnimationClientRpc(IsMoving(), _isRunning, _isGrounded);
+
+            _syncTimer = 0f;
         }
     }
 
     private void Update()
     {
-        if (IsOwner)
-        {
-            UpdateNetworkAnimationStates();
-        }
-
         ApplyAnimations();
+        SetFacingDirection(_moveInput);
     }
 
     /// <summary>
@@ -200,7 +276,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     {
         if (!IsOwner) return;
 
-        _playerState.DamageServerRpc(_playerState.Health.Value);
+        SetHealth(0f);
 
         Debug.Log($"PlayerPresenter: Player {PlayerId} triggered death logic, requesting damage from state.");
     }
@@ -232,24 +308,98 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     #endregion
 
-    #region Animation
+    #region Network RPCs (Server Authority)
 
-    private void UpdateNetworkAnimationStates()
+    /// <summary>
+    /// Owner -> Server: Envía la intención de movimiento y el estado actual.
+    /// </summary>
+    [ServerRpc]
+    private void UpdateMovementStateServerRpc(bool isMoving, bool isRunning, bool isGrounded)
     {
-        if (_animator == null) return;
+        _isRunning = isRunning;
+        _isGrounded = isGrounded;
+    }
 
-        bool moving = IsMoving();
+    /// <summary>
+    /// Server -> Everyone: Sincroniza el estado de animación para que se visualice correctamente.
+    /// Esto es más eficiente que sincronizar 3 NetworkVariables.
+    /// </summary>
+    [ClientRpc]
+    private void UpdateAnimationClientRpc(bool isMoving, bool isRunning, bool isGrounded)
+    {
+        if (IsOwner) return;
 
-        if (_isMovingNetwork.Value != moving)
+        _isGrounded = isGrounded;
+        _isRunning = isRunning;
+
+    }
+
+    /// <summary>
+    /// Callback para clientes remotos (no dueños y no servidor) cuando la posición de red cambia.
+    /// </summary>
+    private void OnNetworkPositionChanged(Vector3 previous, Vector3 current)
+    {
+        if (!IsOwner)
         {
-            _isMovingNetwork.Value = moving;
-        }
-
-        if (_isRunningNetwork.Value != _isRunning)
-        {
-            _isRunningNetwork.Value = _isRunning;
+            transform.position = current;
         }
     }
+
+    /// <summary>
+    /// Applies exponential damage based on missing health.
+    /// </summary>
+    /// <param name="tickInterval">Time interval for damage calculation.</param>
+    [ServerRpc(RequireOwnership = false)]
+    public void ApplyExponentialDamageServerRpc(float tickInterval)
+    {
+        if (!IsServer || !_isAlive) return;
+
+        float baseDamage = 5f * tickInterval;
+        float missingHealth = Mathf.Max(0f, maxHealth - _currentHealth);
+        float scalingDamage = Mathf.Pow(missingHealth, 1.2f) * tickInterval;
+        float totalDamage = baseDamage + scalingDamage;
+
+        float newHealth = Mathf.Max(0f, _currentHealth - totalDamage);
+        SetHealth(newHealth);
+    }
+
+    /// <summary>
+    /// Applies linear health recovery over time.
+    /// </summary>
+    /// <param name="tickInterval">Time interval for recovery calculation.</param>
+    [ServerRpc(RequireOwnership = false)]
+    public void ApplyLinearRecoveryServerRpc(float tickInterval)
+    {
+        if (!IsServer || !_isAlive) return;
+
+        float recoveryAmount = maxHealth * 0.1f * tickInterval;
+        float newHealth = Mathf.Min(maxHealth, _currentHealth + recoveryAmount);
+        SetHealth(newHealth);
+    }
+
+    /// <summary>
+    /// Resets the player's health to maximum.
+    /// </summary>
+    [ServerRpc(RequireOwnership = false)]
+    public void ResetHealthServerRpc()
+    {
+        if (!IsServer) return;
+        SetHealth(maxHealth);
+    }
+
+    /// <summary>
+    /// Updates health and alive status.
+    /// </summary>
+    /// <param name="newHealth">New health value.</param>
+    private void SetHealth(float newHealth)
+    {
+        _currentHealth = newHealth;
+        _isAlive = _currentHealth > 0f;
+    }
+
+    #endregion
+
+    #region Animation
 
 
     /// <summary>
@@ -260,9 +410,18 @@ public sealed class PlayerPresenter : NetworkBehaviour
     {
         if (_animator == null) return;
 
-        _animator.SetBool(IsMovingParam, _isMovingNetwork.Value);
-        _animator.SetBool(IsRunningParam, _isRunningNetwork.Value);
-        _animator.SetBool(IsGroundedParam, _isGroundedNetwork.Value);
+        if (IsOwner || IsServer)
+        {
+            _animator.SetBool(IsMovingParam, IsMoving());
+            _animator.SetBool(IsRunningParam, _isRunning);
+            _animator.SetBool(IsGroundedParam, _isGrounded);
+        }
+        else
+        {
+            _animator.SetBool(IsMovingParam, _moveInput.x != 0);
+            _animator.SetBool(IsRunningParam, _isRunning);
+            _animator.SetBool(IsGroundedParam, _isGrounded);
+        }
     }
 
     #endregion
@@ -312,9 +471,17 @@ public sealed class PlayerPresenter : NetworkBehaviour
     /// <param name="context">Input action context.</param>
     public void OnMove(InputAction.CallbackContext context)
     {
-        if (!IsOwner) return;
+        string prefabName = gameObject.name;
+        if (!IsOwner)
+        {
+            // Debug: Quién es el owner al recibir la entrada (no dueño)
+            Debug.Log($"[OnMove Debug - {prefabName}] NO SOY EL DUEÑO. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
+            return;
+        }
+
+        // Debug: Quién es el owner al recibir la entrada (dueño)
+        Debug.Log($"[OnMove Debug] SOY EL DUEÑO. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
         _moveInput = context.ReadValue<Vector2>();
-        SetFacingDirection(_moveInput);
     }
 
     /// <summary>
@@ -324,14 +491,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     public void OnRun(InputAction.CallbackContext context)
     {
         if (!IsOwner) return;
-        if (context.performed)
-        {
-            _isRunning = true;
-        }
-        else if (context.canceled)
-        {
-            _isRunning = false;
-        }
+        _isRunning = context.performed;
     }
 
     /// <summary>
@@ -340,9 +500,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     /// <param name="context">Input action context.</param>
     public void OnJump(InputAction.CallbackContext context)
     {
-        if (!IsOwner) return;
-        if (!context.performed)
-            return;
+        if (!context.performed) return;
 
         if (_isGrounded)
         {

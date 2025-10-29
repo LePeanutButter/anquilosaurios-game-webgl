@@ -242,7 +242,7 @@ public class SessionManager : NetworkBehaviour
         CharacterType assigned = GetUniqueCharacter();
         playerCharacterMap[clientId] = assigned;
 
-        playerState.InitializeClientRpc($"Player_{clientId}", (int)assigned);
+        playerState.InitializeDataServer($"Player_{clientId}", (int)assigned);
         Debug.Log($"Servidor inicializó PlayerState del cliente {clientId} con personaje {assigned}");
     }
 

@@ -576,17 +576,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Application::GameRoundManager
   ShowTopMostFoldoutHeaderGroup: 1
-  mapGeneratorPrefab: {fileID: 7820039560332280641, guid: 980bdb17bc661a042921d397fb7dfe5c, type: 3}
   lethalPrefab: {fileID: 1339194546334648021, guid: 24258c62b656cd243b94a197556b38ae, type: 3}
-  playerPrefabs:
-  - characterType: 1
-    prefab: {fileID: 3043336175621812973, guid: 775d91fb5a133864286edffe47103808, type: 3}
-  - characterType: 2
-    prefab: {fileID: 7278221753149334080, guid: 60584e3f1d0736540a546b6bcd452986, type: 3}
-  - characterType: 3
-    prefab: {fileID: 5304963807191001562, guid: eaec8551a0531dc43b803037729971ef, type: 3}
-  - characterType: 4
-    prefab: {fileID: 2410886653998898105, guid: 41bdc379e62922941b6f29b6e5c9077d, type: 3}
   mapPrefabs:
   - {fileID: 884461902657112996, guid: 2dfd37763ccc82c4688639d9d8669bc4, type: 3}
   matchDurationSeconds: 30
@@ -595,6 +585,15 @@ MonoBehaviour:
   minSpawnInterval: 0.3
   allowedSpawnWidthPixels: 1850
   spawnAboveScreenPixels: 50
+  playerPrefabsMap:
+  - Type: 1
+    Prefab: {fileID: 3043336175621812973, guid: 775d91fb5a133864286edffe47103808, type: 3}
+  - Type: 2
+    Prefab: {fileID: 7278221753149334080, guid: 60584e3f1d0736540a546b6bcd452986, type: 3}
+  - Type: 3
+    Prefab: {fileID: 5304963807191001562, guid: eaec8551a0531dc43b803037729971ef, type: 3}
+  - Type: 4
+    Prefab: {fileID: 2410886653998898105, guid: 41bdc379e62922941b6f29b6e5c9077d, type: 3}
 --- !u!4 &1954669051
 Transform:
   m_ObjectHideFlags: 0

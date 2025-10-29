@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -16,6 +15,13 @@ public class GameRoundManager : NetworkBehaviour
 {
     public static GameRoundManager Instance { get; private set; }
 
+    [System.Serializable]
+    public struct PlayerPrefabEntry
+    {
+        public CharacterType Type;
+        public GameObject Prefab;
+    }
+
     [Header("Prefabs and Scene")]
     [SerializeField] private GameObject lethalPrefab;
     [SerializeField] private GameObject[] mapPrefabs;
@@ -27,6 +33,10 @@ public class GameRoundManager : NetworkBehaviour
     [SerializeField] private float minSpawnInterval = 0.3f;
     [SerializeField] private int allowedSpawnWidthPixels = 1850;
     [SerializeField] private int spawnAboveScreenPixels = 50;
+
+    [Header("Player Settings")]
+    [SerializeField] private List<PlayerPrefabEntry> playerPrefabsMap;
+    private Dictionary<CharacterType, GameObject> playerPrefabsDict = new();
 
     private Coroutine spawnRoutine;
 
@@ -41,6 +51,25 @@ public class GameRoundManager : NetworkBehaviour
         }
 
         Instance = this;
+        InitializePlayerPrefabsDict();
+    }
+
+    private void InitializePlayerPrefabsDict()
+    {
+        playerPrefabsDict.Clear();
+
+        foreach (var entry in playerPrefabsMap)
+        {
+            if (playerPrefabsDict.ContainsKey(entry.Type))
+            {
+                Debug.LogWarning($"GameRoundManager: El CharacterType '{entry.Type}' ya existe en el diccionario. Se ignora la entrada duplicada.");
+                continue;
+            }
+
+            playerPrefabsDict.Add(entry.Type, entry.Prefab);
+        }
+
+        Debug.Log($"GameRoundManager: Diccionario de Player Prefabs inicializado con {playerPrefabsDict.Count} entradas.");
     }
 
     public override void OnNetworkSpawn()
@@ -98,31 +127,36 @@ public class GameRoundManager : NetworkBehaviour
         Debug.Log($"GameRoundManager: Spawned map '{prefab.name}' at {instance.transform.position}");
     }
 
-
-    /// <summary>
-    /// Encuentra el PlayerState, le pide que instancie el avatar (si no lo ha hecho) y lo spawnea en la red.
-    /// </summary>
     private void SpawnPlayer(ulong clientId)
     {
         if (!IsServer) return;
 
-        PlayerState playerState = SessionManager.Instance?.GetPlayerStateForClient(clientId);
-
-        if (playerState == null)
+        if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var clientInfo) || clientInfo.PlayerObject == null)
         {
-            Debug.LogWarning($"GameRoundManager: No PlayerState found for client {clientId}. Cannot spawn player.");
+            Debug.LogError($"GameRoundManager: No se encontró la información del cliente o el PlayerObject para el cliente {clientId}.");
             return;
         }
 
-        PlayerPresenter presenter = playerState.ActivePresenter;
-        if (presenter == null)
+        if (!clientInfo.PlayerObject.TryGetComponent(out PlayerState playerState))
         {
-            presenter = playerState.InstantiateAvatar();
+            Debug.LogError($"GameRoundManager: El PlayerObject no tiene el componente PlayerState.");
+            return;
         }
+
+        CharacterType charType = (CharacterType)playerState.Character.Value;
+        if (!playerPrefabsDict.TryGetValue(charType, out GameObject prefab) || prefab == null)
+        {
+            Debug.LogError($"GameRoundManager: No se encontró el prefab para CharacterType '{charType}' (Cliente {clientId}).");
+            return;
+        }
+
+        GameObject go = Instantiate(prefab);
+        PlayerPresenter presenter = go.GetComponent<PlayerPresenter>();
 
         if (presenter == null)
         {
-            Debug.LogError($"GameRoundManager: Failed to get or instantiate avatar for client {clientId}.");
+            Debug.LogError($"GameRoundManager: El prefab instanciado '{go.name}' no contiene PlayerPresenter.");
+            Destroy(go);
             return;
         }
 
@@ -130,20 +164,16 @@ public class GameRoundManager : NetworkBehaviour
 
         if (netObj == null)
         {
-            Debug.LogError($"GameRoundManager: Avatar for client {clientId} is missing NetworkObject.");
+            Debug.LogError($"GameRoundManager: El Avatar instanciado '{presenter.gameObject.name}' no tiene NetworkObject.");
+            Destroy(presenter.gameObject);
             return;
         }
 
-        presenter.InitializePresenter(playerState);
-
-        Vector2 spawnPos = new(Random.Range(-3f, 3f), 1f);
-        netObj.transform.position = spawnPos;
+        Vector3 spawnPos = new Vector3(Random.Range(-3f, 3f), 1f, 0f);
+        presenter.transform.position = spawnPos;
 
         netObj.SpawnWithOwnership(clientId);
-
-        Debug.Log($"Spawned player avatar (CharacterType: {(CharacterType)playerState.Character.Value}) for client {clientId} at {spawnPos}.");
     }
-
 
 
     [ServerRpc(RequireOwnership = false)]

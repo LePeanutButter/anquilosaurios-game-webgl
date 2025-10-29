@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -14,6 +13,7 @@ public class PlayerCardUI : MonoBehaviour
     public Sprite florSprite;
     public Sprite girasolSprite;
     public Sprite jalapenoSprite;
+    public Sprite manzanaSprite;
 
     private Dictionary<CharacterType, Sprite> characterSpriteMap;
 
@@ -34,7 +34,8 @@ public class PlayerCardUI : MonoBehaviour
         {
             { CharacterType.Flor, florSprite },
             { CharacterType.Girasol, girasolSprite },
-            { CharacterType.Jalapeno, jalapenoSprite }
+            { CharacterType.Jalapeno, jalapenoSprite },
+            { CharacterType.Manzana, manzanaSprite }
         };
     }
 

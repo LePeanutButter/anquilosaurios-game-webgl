@@ -48,7 +48,6 @@ GameObject:
   - component: {fileID: -3065196340252306378}
   - component: {fileID: 797520349482361058}
   - component: {fileID: 4925176348521515018}
-  - component: {fileID: 2040886236897516936}
   m_Layer: 3
   m_Name: Player
   m_TagString: Untagged
@@ -172,7 +171,7 @@ MonoBehaviour:
   GlobalObjectIdHash: 209551358
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
-  Ownership: 1
+  Ownership: 7
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
@@ -191,19 +190,21 @@ MonoBehaviour:
   m_GameObject: {fileID: 7677004314925365782}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cd1535ed243d06d47bbca7bfdeea43ae, type: 3}
+  m_Script: {fileID: 11500000, guid: 9fedc2d32ab41554e90b72e539fe6f77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
   ShowTopMostFoldoutHeaderGroup: 1
-  walkSpeed: 10
-  runSpeed: 1.2
+  walkSpeed: 8
+  runSpeed: 1.8
   jumpVelocity: 8
   useInterpolation: 1
-  groundCheckPoint: {fileID: 572655738322768948}
-  groundCheckRadius: 0.1
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
+  groundCheckPoint: {fileID: 572655738322768948}
+  groundCheckRadius: 0.1
+  serverSyncRate: 0.05
+  maxHealth: 100
 --- !u!114 &2205661803709767447
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -436,20 +437,3 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
---- !u!114 &2040886236897516936
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7677004314925365782}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 80d7c879794dfda4687da0e400131852, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkRigidbody2D
-  ShowTopMostFoldoutHeaderGroup: 1
-  NetworkRigidbodyBaseExpanded: 0
-  UseRigidBodyForMotion: 0
-  AutoUpdateKinematicState: 1
-  AutoSetKinematicOnDespawn: 1
