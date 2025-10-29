@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -20,7 +19,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     [SerializeField, Tooltip("Run speed multiplier."), Range(1f, 5f)]
     private float runSpeed = 1.8f;
     [SerializeField, Tooltip("Velocidad vertical inicial del salto (unidades/seg).")]
-    private float jumpVelocity = 8f;
+    private float jumpVelocity = 8.5f;
     [SerializeField, Tooltip("Enable Rigidbody2D interpolation for smooth movement.")]
     private bool useInterpolation = true;
 

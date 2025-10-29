@@ -45,7 +45,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 668944991
+  GlobalObjectIdHash: 2859066193
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -75,7 +75,7 @@ MonoBehaviour:
   - characterType: 1
     prefab: {fileID: 3043336175621812973, guid: 775d91fb5a133864286edffe47103808, type: 3}
   - characterType: 2
-    prefab: {fileID: 7278221753149334080, guid: 60584e3f1d0736540a546b6bcd452986, type: 3}
+    prefab: {fileID: 2410886653998898105, guid: cd4454e618d4a0740a4bec85b8935d98, type: 3}
   - characterType: 3
     prefab: {fileID: 5304963807191001562, guid: eaec8551a0531dc43b803037729971ef, type: 3}
   - characterType: 4

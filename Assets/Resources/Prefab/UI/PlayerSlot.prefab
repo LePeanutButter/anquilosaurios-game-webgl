@@ -91,7 +91,7 @@ MonoBehaviour:
   playerNameText: {fileID: 178709999910431557}
   characterImage: {fileID: 1992390634595091230}
   florSprite: {fileID: 104820617, guid: 06d63dcfb9200ed4d8a2894e041413c2, type: 3}
-  girasolSprite: {fileID: 1050596359, guid: 0c0abb2033ace66468be27675e39bc47, type: 3}
+  girasolSprite: {fileID: 1065982593, guid: 0c0abb2033ace66468be27675e39bc47, type: 3}
   jalapenoSprite: {fileID: -646208900, guid: 02a3a920c85e50e4c927cc7c8ebc16f9, type: 3}
   manzanaSprite: {fileID: -44276034, guid: 7c41dec83835a794383a7696213f2eed, type: 3}
 --- !u!114 &1161014005899078359

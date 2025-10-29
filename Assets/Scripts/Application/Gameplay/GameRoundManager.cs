@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -14,6 +15,8 @@ using UnityEngine;
 public class GameRoundManager : NetworkBehaviour
 {
     public static GameRoundManager Instance { get; private set; }
+
+    #region Inspector Fields
 
     [System.Serializable]
     public struct PlayerPrefabEntry
@@ -38,9 +41,21 @@ public class GameRoundManager : NetworkBehaviour
     [SerializeField] private List<PlayerPrefabEntry> playerPrefabsMap;
     private Dictionary<CharacterType, GameObject> playerPrefabsDict = new();
 
-    private Coroutine spawnRoutine;
+    [Header("HUD")]
+    [SerializeField] private TMP_Text timeTextHud;
+    [SerializeField] private GameObject playerHealthHudPrefab;
+    [SerializeField] private Transform healthHudParent;
 
+    #endregion
+
+    #region Private Fields
+
+    private Coroutine spawnRoutine;
     private NetworkVariable<float> remainingTime = new(writePerm: NetworkVariableWritePermission.Server);
+
+    #endregion
+
+    #region Initialization & Network Spawn
 
     private void Awake()
     {
@@ -79,7 +94,6 @@ public class GameRoundManager : NetworkBehaviour
             Debug.Log("GameRoundManager: Server started, setting up round...");
             StartCoroutine(ServerInitializeRound());
         }
-
     }
 
     private IEnumerator ServerInitializeRound()
@@ -173,8 +187,56 @@ public class GameRoundManager : NetworkBehaviour
         presenter.transform.position = spawnPos;
 
         netObj.SpawnWithOwnership(clientId);
+        SpawnPlayerHealthHudClientRpc(netObj.NetworkObjectId);
     }
 
+    #endregion
+    
+    #region Update
+
+    private void Update()
+    {
+        if (IsClient)
+        {
+            UpdateRemainingTimeDisplay();
+        }
+    }
+
+    private void UpdateRemainingTimeDisplay()
+    {
+        if (timeTextHud == null) return;
+
+        float time = remainingTime.Value;
+
+        int minutes = Mathf.FloorToInt(time / 60f);
+        int seconds = Mathf.FloorToInt(time % 60f);
+
+        timeTextHud.text = string.Format("{0:00}:{1:00}", minutes, seconds);
+    }
+
+    #endregion
+
+    #region Network RPCs (Server Authority)
+
+    [ClientRpc]
+    private void SpawnPlayerHealthHudClientRpc(ulong playerNetworkObjectId)
+    {
+        if (playerHealthHudPrefab == null || healthHudParent == null)
+        {
+            Debug.LogError("GameRoundManager: playerHealthHudPrefab o healthHudParent no están asignados.");
+            return;
+        }
+
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(playerNetworkObjectId, out NetworkObject netObj))
+        {
+            Debug.LogError($"GameRoundManager: No se pudo encontrar el NetworkObject con ID: {playerNetworkObjectId}.");
+            return;
+        }
+
+        GameObject hudInstance = Instantiate(playerHealthHudPrefab, healthHudParent);
+
+        Debug.Log($"GameRoundManager: Cliente {NetworkManager.Singleton.LocalClientId} instanció HUD para el jugador {playerNetworkObjectId}.");
+    }
 
     [ServerRpc(RequireOwnership = false)]
     private void StartRoundServerRpc()
@@ -249,5 +311,5 @@ public class GameRoundManager : NetworkBehaviour
             StopCoroutine(spawnRoutine);
     }
 
-    public float GetRemainingTime() => remainingTime.Value;
+    #endregion
 }
