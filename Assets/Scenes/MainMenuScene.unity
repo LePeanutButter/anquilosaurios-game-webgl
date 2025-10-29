@@ -1186,12 +1186,12 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6802615014586653417, guid: d1c730f7039898a46905b050cd094793, type: 3}
       propertyPath: NetworkConfig.Prefabs.NetworkPrefabsLists.Array.size
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6802615014586653417, guid: d1c730f7039898a46905b050cd094793, type: 3}
       propertyPath: 'NetworkConfig.Prefabs.NetworkPrefabsLists.Array.data[0]'
       value: 
-      objectReference: {fileID: 11400000, guid: c786aa40217d3314c9312a27bff760f1, type: 2}
+      objectReference: {fileID: 11400000, guid: 8f3976c293de49749afcd0b965d6398b, type: 2}
     - target: {fileID: 6802615014586653417, guid: d1c730f7039898a46905b050cd094793, type: 3}
       propertyPath: 'NetworkConfig.Prefabs.NetworkPrefabsLists.Array.data[1]'
       value: 

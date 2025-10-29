@@ -1,7 +1,9 @@
 using System.Collections;
-using Unity.Netcode;
+using System.Collections.Generic;
 using Unity.Collections;
+using Unity.Netcode;
 using UnityEngine;
+using static GameRoundManager;
 
 /// <summary>
 /// Network adapter that synchronizes id, name and character between network and domain.
@@ -10,6 +12,23 @@ using UnityEngine;
 /// </summary>
 public class PlayerState : NetworkBehaviour
 {
+    [Header("Presentation")]
+    [Tooltip("Lista de GameObjects Prefabs de avatar, mapeados por CharacterType.")]
+    [SerializeField]
+    private CharacterPrefabEntry[] characterPrefabs;
+    private Dictionary<CharacterType, GameObject> _prefabMap;
+
+    [System.Serializable]
+    public struct CharacterPrefabEntry
+    {
+        public CharacterType characterType;
+        public GameObject prefab;
+    }
+
+    private PlayerPresenter _activePresenter;
+
+    public PlayerPresenter ActivePresenter => _activePresenter;
+
     /// <summary>
     /// Unique identifier for the player.
     /// </summary>
@@ -82,6 +101,39 @@ public class PlayerState : NetworkBehaviour
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
 
+    private void Awake()
+    {
+        _prefabMap = new Dictionary<CharacterType, GameObject>();
+        foreach (var entry in characterPrefabs)
+        {
+            if (entry.prefab != null && !_prefabMap.ContainsKey(entry.characterType))
+            {
+                _prefabMap.Add(entry.characterType, entry.prefab);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Called when the object is spawned on the network.
+    /// Subscribes to health and alive status change events.
+    /// </summary>
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+
+        Health.OnValueChanged += OnHealthChanged;
+        IsPlayerAlive.OnValueChanged += OnIsAliveChanged;
+
+        Character.OnValueChanged += OnCharacterSelected;
+
+        if (IsServer)
+        {
+            PlayerId.Value = OwnerClientId;
+        }
+
+        Debug.Log($"PlayerState spawned. OwnerClientId: {OwnerClientId}, IsOwner: {IsOwner}");
+    }
+
     /// <summary>
     /// Called when the object is despawned from the network.
     /// Unsubscribes from health and alive status change events.
@@ -91,6 +143,13 @@ public class PlayerState : NetworkBehaviour
         base.OnNetworkDespawn();
         Health.OnValueChanged -= OnHealthChanged;
         IsPlayerAlive.OnValueChanged -= OnIsAliveChanged;
+        Character.OnValueChanged -= OnCharacterSelected;
+
+        if (IsServer && _activePresenter != null)
+        {
+            Destroy(_activePresenter.gameObject);
+            _activePresenter = null;
+        }
     }
 
     /// <summary>
@@ -207,28 +266,6 @@ public class PlayerState : NetworkBehaviour
         SetHealth(MaxHealth.Value);
     }
 
-    private void OnEnabled()
-    {
-        PlayerEvents.OnPlayerDied += OnPlayerDied;
-    }
-
-    private void OnDisabled()
-    {
-        PlayerEvents.OnPlayerDied -= OnPlayerDied;
-    }
-
-    private void OnPlayerDied(ulong playerId)
-    {
-        if (playerId != OwnerClientId)
-            return;
-
-        if (IsServer)
-        {
-            Health.Value = 0;
-            Debug.Log($"PlayerState: Player {playerId} marked as dead.");
-        }
-    }
-
     /// <summary>
     /// Updates health and alive status.
     /// </summary>
@@ -237,6 +274,13 @@ public class PlayerState : NetworkBehaviour
     {
         Health.Value = newHealth;
         IsPlayerAlive.Value = Health.Value > 0f;
+    }
+
+    #region Network Variable Handlers
+
+    private void OnCharacterSelected(int previous, int current)
+    {
+        Debug.Log($"[{PlayerName.Value}] Character seleccionado: {(CharacterType)previous} -> {(CharacterType)current}");
     }
 
     /// <summary>
@@ -254,6 +298,8 @@ public class PlayerState : NetworkBehaviour
     {
         Debug.Log($"[{PlayerName.Value}] Alive: {previous} - {current}");
     }
+
+    #endregion
 
     /// <summary>
     /// Displays all the current values of the player's NetworkVariables in the console.
@@ -273,4 +319,58 @@ public class PlayerState : NetworkBehaviour
 
         Debug.Log(state);
     }
+
+    #region Public API
+
+    /// <summary>
+    /// Instancia el avatar del personaje en el servidor, basándose en el Character.Value seleccionado.
+    /// Esto DEBE ser llamado por un sistema de juego (ej. RoundManager) cuando el avatar sea requerido.
+    /// </summary>
+    /// <returns>La instancia creada del PlayerPresenter o null si falla.</returns>
+    public PlayerPresenter InstantiateAvatar()
+    {
+        if (!IsServer)
+        {
+            Debug.LogError("InstantiateAvatar solo puede ser llamado por el Host/Server.");
+            return null;
+        }
+
+        if (_activePresenter != null)
+        {
+            Debug.LogWarning($"Avatar ya instanciado para el jugador {PlayerName.Value}. Retornando la instancia existente.");
+            return _activePresenter;
+        }
+
+        CharacterType selectedType = (CharacterType)Character.Value;
+
+        if (!_prefabMap.TryGetValue(selectedType, out GameObject selectedPrefab) || selectedPrefab == null)
+        {
+            Debug.LogError($"PlayerState para el cliente {OwnerClientId}: CharacterType {selectedType} no tiene prefab válido en el mapa.", this);
+            return null;
+        }
+
+        GameObject avatarGO = Instantiate(selectedPrefab);
+
+        _activePresenter = avatarGO.GetComponent<PlayerPresenter>();
+
+        if (_activePresenter == null)
+        {
+            Debug.LogError($"El prefab de personaje '{selectedPrefab.name}' no contiene un PlayerPresenter.", this);
+            Destroy(avatarGO);
+            return null;
+        }
+
+        NetworkObject networkObject = avatarGO.GetComponent<NetworkObject>();
+        if (networkObject == null)
+        {
+            Debug.LogError($"El PlayerAvatarPrefab debe tener un componente NetworkObject.", this);
+            Destroy(avatarGO);
+            return null;
+        }
+
+        Debug.Log($"[Server] Avatar {selectedPrefab.name} INSTANCIADO (NO SPAWNEADO) para cliente {OwnerClientId}. Está listo.");
+        return _activePresenter;
+    }
+
+    #endregion
 }

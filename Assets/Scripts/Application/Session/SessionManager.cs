@@ -277,7 +277,7 @@ public class SessionManager : NetworkBehaviour
         }
     }
 
-    private PlayerState GetPlayerStateForClient(ulong clientId)
+    public PlayerState GetPlayerStateForClient(ulong clientId)
     {
         if (NetworkManager.Singleton == null) return null;
         if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var networkClient)) return null;

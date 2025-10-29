@@ -17,18 +17,8 @@ public class GameRoundManager : NetworkBehaviour
     public static GameRoundManager Instance { get; private set; }
 
     [Header("Prefabs and Scene")]
-    [SerializeField] private GameObject mapGeneratorPrefab;
     [SerializeField] private GameObject lethalPrefab;
-
-    [Header("Player Prefabs by CharacterType")]
-    [SerializeField] private CharacterPrefabEntry[] playerPrefabs;
-
-    [System.Serializable]
-    public struct CharacterPrefabEntry
-    {
-        public CharacterType characterType;
-        public GameObject prefab;
-    }
+    [SerializeField] private GameObject[] mapPrefabs;
 
     [Header("Match Settings")]
     [SerializeField] private float matchDurationSeconds = 30f;
@@ -39,11 +29,8 @@ public class GameRoundManager : NetworkBehaviour
     [SerializeField] private int spawnAboveScreenPixels = 50;
 
     private Coroutine spawnRoutine;
-    private MapGenerator mapGenerator;
 
     private NetworkVariable<float> remainingTime = new(writePerm: NetworkVariableWritePermission.Server);
-
-    private readonly Dictionary<CharacterType, GameObject> prefabMap = new();
 
     private void Awake()
     {
@@ -54,15 +41,6 @@ public class GameRoundManager : NetworkBehaviour
         }
 
         Instance = this;
-
-        prefabMap.Clear();
-        foreach (var entry in playerPrefabs)
-        {
-            if (entry.prefab != null && !prefabMap.ContainsKey(entry.characterType))
-            {
-                prefabMap.Add(entry.characterType, entry.prefab);
-            }
-        }
     }
 
     public override void OnNetworkSpawn()
@@ -93,73 +71,79 @@ public class GameRoundManager : NetworkBehaviour
 
     private void GenerateMap()
     {
-        if (mapGeneratorPrefab == null)
+        if (!IsServer)
         {
-            Debug.LogError("GameRoundManager: No mapGeneratorPrefab assigned.");
+            Debug.LogWarning("GameRoundManager: GenerateMap should only be called on the server.");
             return;
         }
 
-        GameObject mapGO = Instantiate(mapGeneratorPrefab);
-        mapGenerator = mapGO.GetComponent<MapGenerator>();
-        if (mapGenerator != null)
+        if (mapPrefabs == null || mapPrefabs.Length == 0)
         {
-            mapGenerator.GenerateMap();
+            Debug.LogError("GameRoundManager: No map prefabs have been assigned.");
+            return;
         }
 
-        if (!mapGO.TryGetComponent(out NetworkObject netObj))
-            netObj = mapGO.AddComponent<NetworkObject>();
+        int index = Random.Range(0, mapPrefabs.Length);
+        GameObject prefab = mapPrefabs[index];
+
+        GameObject instance = Instantiate(prefab, Vector3.zero, Quaternion.identity);
+
+        if (!instance.TryGetComponent(out NetworkObject netObj))
+        {
+            netObj = instance.AddComponent<NetworkObject>();
+        }
 
         netObj.Spawn(true);
+
+        Debug.Log($"GameRoundManager: Spawned map '{prefab.name}' at {instance.transform.position}");
     }
 
+
+    /// <summary>
+    /// Encuentra el PlayerState, le pide que instancie el avatar (si no lo ha hecho) y lo spawnea en la red.
+    /// </summary>
     private void SpawnPlayer(ulong clientId)
     {
-        PlayerState playerState = FindPlayerState(clientId);
+        if (!IsServer) return;
 
-        CharacterType charType = CharacterType.None;
-        if (playerState != null)
-        {
-            charType = (CharacterType)playerState.Character.Value;
-        }
-        else
-        {
-            Debug.LogWarning($"GameRoundManager: No PlayerState found for client {clientId}, using default character.");
-        }
+        PlayerState playerState = SessionManager.Instance?.GetPlayerStateForClient(clientId);
 
-        if (!prefabMap.TryGetValue(charType, out GameObject prefab))
+        if (playerState == null)
         {
-            Debug.LogWarning($"GameRoundManager: No prefab found for {charType}, using first available prefab.");
-            prefab = prefabMap.Values.FirstOrDefault();
-        }
-
-        if (prefab == null)
-        {
-            Debug.LogError("GameRoundManager: No valid player prefab available!");
+            Debug.LogWarning($"GameRoundManager: No PlayerState found for client {clientId}. Cannot spawn player.");
             return;
         }
 
-        Vector2 spawnPos = new(Random.Range(-3f, 3f), 1f);
-        GameObject playerObj = Instantiate(prefab, spawnPos, Quaternion.identity);
+        PlayerPresenter presenter = playerState.ActivePresenter;
+        if (presenter == null)
+        {
+            presenter = playerState.InstantiateAvatar();
+        }
 
-        if (!playerObj.TryGetComponent(out NetworkObject netObj))
-            netObj = playerObj.AddComponent<NetworkObject>();
+        if (presenter == null)
+        {
+            Debug.LogError($"GameRoundManager: Failed to get or instantiate avatar for client {clientId}.");
+            return;
+        }
+
+        NetworkObject netObj = presenter.GetComponent<NetworkObject>();
+
+        if (netObj == null)
+        {
+            Debug.LogError($"GameRoundManager: Avatar for client {clientId} is missing NetworkObject.");
+            return;
+        }
+
+        presenter.InitializePresenter(playerState);
+
+        Vector2 spawnPos = new(Random.Range(-3f, 3f), 1f);
+        netObj.transform.position = spawnPos;
 
         netObj.SpawnWithOwnership(clientId);
 
-        Debug.Log($"Spawned player for client {clientId} using CharacterType = {charType}");
+        Debug.Log($"Spawned player avatar (CharacterType: {(CharacterType)playerState.Character.Value}) for client {clientId} at {spawnPos}.");
     }
 
-    private PlayerState FindPlayerState(ulong clientId)
-    {
-        var states = FindObjectsByType<PlayerState>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        foreach (var state in states)
-        {
-            if (state.OwnerClientId == clientId)
-                return state;
-        }
-
-        return null;
-    }
 
 
     [ServerRpc(RequireOwnership = false)]

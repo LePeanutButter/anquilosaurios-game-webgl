@@ -1,6 +1,7 @@
 {
     "name": "Application",
     "references": [
+        "Unity.InputSystem",
         "Unity.TextMeshPro",
         "Unity.Services.Core",
         "Unity.Services.Multiplayer",

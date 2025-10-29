@@ -35,9 +35,26 @@ public sealed class PlayerPresenter : NetworkBehaviour
     private Rigidbody2D _rb;
     private Collider2D _collider;
     private Animator _animator;
+    private PlayerState _playerState;
     private Vector2 _moveInput;
     private bool _isRunning;
     private bool _isGrounded;
+
+    private readonly NetworkVariable<bool> _isMovingNetwork = new(
+        false,
+        readPerm: NetworkVariableReadPermission.Everyone,
+        writePerm: NetworkVariableWritePermission.Owner);
+
+    private readonly NetworkVariable<bool> _isRunningNetwork = new(
+        false,
+        readPerm: NetworkVariableReadPermission.Everyone,
+        writePerm: NetworkVariableWritePermission.Owner);
+
+    private readonly NetworkVariable<bool> _isGroundedNetwork = new(
+        false,
+        readPerm: NetworkVariableReadPermission.Everyone,
+        writePerm: NetworkVariableWritePermission.Owner);
+
     private static readonly int IsMovingParam = Animator.StringToHash("IsMoving");
     private static readonly int IsRunningParam = Animator.StringToHash("IsRunning");
     private static readonly int IsGroundedParam = Animator.StringToHash("IsGrounded");
@@ -56,7 +73,10 @@ public sealed class PlayerPresenter : NetworkBehaviour
     /// </summary>
     public bool IsGrounded => _isGrounded;
 
-    public ulong PlayerId => OwnerClientId;
+    // <summary>
+    /// PlayerId now references PlayerState's value.
+    /// </summary>
+    public ulong PlayerId => _playerState != null ? _playerState.PlayerId.Value : OwnerClientId;
 
     #endregion
 
@@ -98,9 +118,33 @@ public sealed class PlayerPresenter : NetworkBehaviour
             : RigidbodyInterpolation2D.None;
 
     }
+
+    public void InitializePresenter(PlayerState state)
+    {
+        if (state == null)
+        {
+            Debug.LogError("El PlayerState proporcionado es nulo.");
+            return;
+        }
+        _playerState = state;
+        Debug.Log($"PlayerPresenter: Asignado PlayerState con ClientId: {state.OwnerClientId}");
+    }
+
     #endregion
 
     #region Unity Callbacks
+
+    /// <summary>
+    /// Called when the object is spawned on the network.
+    /// Check for ownership before enabling control logic.
+    /// </summary>
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+        if (!IsOwner)
+        {
+        }
+    }
 
     /// <summary>
     /// Unity callback invoked at a fixed time interval, used for physics updates.
@@ -110,21 +154,55 @@ public sealed class PlayerPresenter : NetworkBehaviour
     {
         CheckGrounded();
 
-        float horizontal = _moveInput.x;
-        float targetSpeed = horizontal * CurrentSpeed;
-        _rb.linearVelocity = new Vector2(targetSpeed, _rb.linearVelocity.y);
+        if (IsOwner && _isGroundedNetwork.Value != _isGrounded)
+        {
+            _isGroundedNetwork.Value = _isGrounded;
+        }
+
+        if (IsOwner)
+        {
+            float horizontal = _moveInput.x;
+            float targetSpeed = horizontal * CurrentSpeed;
+            _rb.linearVelocity = new Vector2(targetSpeed, _rb.linearVelocity.y);
+        }
     }
 
     private void Update()
     {
+        if (IsOwner)
+        {
+            UpdateNetworkAnimationStates();
+        }
+
+        ApplyAnimations();
+    }
+
+    /// <summary>
+    /// Handler when the player's health or state change causes death.
+    /// </summary>
+    public void OnPlayerDiedStateChanged()
+    {
         if (!IsOwner) return;
-        UpdateAnimations();
+
+        enabled = false;
+
+        Debug.Log($"PlayerPresenter: Player {PlayerId} received death notification from state.");
+
+    }
+
+    public void OnPlayerHealthChanged(float newHealth)
+    {
+        // Lógica de presentación: por ejemplo, actualizar la barra de salud del HUD.
+        // Debug.Log($"Presenter {PlayerId} health updated: {newHealth}");
     }
 
     private void HandleDeath()
     {
-        enabled = false;
-        PlayerEvents.RaisePlayerDied(PlayerId);
+        if (!IsOwner) return;
+
+        _playerState.DamageServerRpc(_playerState.Health.Value);
+
+        Debug.Log($"PlayerPresenter: Player {PlayerId} triggered death logic, requesting damage from state.");
     }
 
     /// <summary>
@@ -134,10 +212,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     {
         if (_rb == null) return true;
 
-        float horizontal = Mathf.Abs(_rb.linearVelocity.x);
-        float vertical = Mathf.Abs(_rb.linearVelocity.y);
-
-        return !(horizontal < velocityThreshold && vertical < velocityThreshold);
+        return Mathf.Abs(_rb.linearVelocity.x) > velocityThreshold;
     }
 
 
@@ -159,18 +234,35 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     #region Animation
 
-    /// <summary>
-    /// Updates the Animator component parameters based on player movement and state.
-    /// Requires an Animator component on the GameObject or a child.
-    /// </summary>
-    private void UpdateAnimations()
+    private void UpdateNetworkAnimationStates()
     {
         if (_animator == null) return;
 
         bool moving = IsMoving();
-        _animator.SetBool(IsMovingParam, moving);
-        _animator.SetBool(IsRunningParam, _isRunning);
-        _animator.SetBool(IsGroundedParam, _isGrounded);
+
+        if (_isMovingNetwork.Value != moving)
+        {
+            _isMovingNetwork.Value = moving;
+        }
+
+        if (_isRunningNetwork.Value != _isRunning)
+        {
+            _isRunningNetwork.Value = _isRunning;
+        }
+    }
+
+
+    /// <summary>
+    /// Updates the Animator component parameters based on SYNCHRONIZED player state.
+    /// This runs on all clients.
+    /// </summary>
+    private void ApplyAnimations()
+    {
+        if (_animator == null) return;
+
+        _animator.SetBool(IsMovingParam, _isMovingNetwork.Value);
+        _animator.SetBool(IsRunningParam, _isRunningNetwork.Value);
+        _animator.SetBool(IsGroundedParam, _isGroundedNetwork.Value);
     }
 
     #endregion
@@ -220,6 +312,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     /// <param name="context">Input action context.</param>
     public void OnMove(InputAction.CallbackContext context)
     {
+        if (!IsOwner) return;
         _moveInput = context.ReadValue<Vector2>();
         SetFacingDirection(_moveInput);
     }
@@ -230,6 +323,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     /// <param name="context">Input action context.</param>
     public void OnRun(InputAction.CallbackContext context)
     {
+        if (!IsOwner) return;
         if (context.performed)
         {
             _isRunning = true;
@@ -246,9 +340,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     /// <param name="context">Input action context.</param>
     public void OnJump(InputAction.CallbackContext context)
     {
-        if (!context.performed)
-            return;
-
+        if (!IsOwner) return;
         if (!context.performed)
             return;
 
