@@ -520,6 +520,95 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!1 &1954669048
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1954669051}
+  - component: {fileID: 1954669049}
+  - component: {fileID: 1954669050}
+  m_Layer: 0
+  m_Name: GameRoundManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1954669049
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1954669048}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 2715860370
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &1954669050
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1954669048}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51fd90af031a9d64eb2f85ebcd7ffac2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Application::GameRoundManager
+  ShowTopMostFoldoutHeaderGroup: 1
+  lethalPrefab: {fileID: 1339194546334648021, guid: 24258c62b656cd243b94a197556b38ae, type: 3}
+  mapPrefabs:
+  - {fileID: 884461902657112996, guid: 2dfd37763ccc82c4688639d9d8669bc4, type: 3}
+  matchDurationSeconds: 30
+  spawnStartDelaySeconds: 2
+  initialSpawnInterval: 1
+  minSpawnInterval: 0.3
+  allowedSpawnWidthPixels: 1850
+  spawnAboveScreenPixels: 50
+  playerPrefabsMap:
+  - Type: 1
+    Prefab: {fileID: 3043336175621812973, guid: 775d91fb5a133864286edffe47103808, type: 3}
+  - Type: 2
+    Prefab: {fileID: 7278221753149334080, guid: 60584e3f1d0736540a546b6bcd452986, type: 3}
+  - Type: 3
+    Prefab: {fileID: 5304963807191001562, guid: eaec8551a0531dc43b803037729971ef, type: 3}
+  - Type: 4
+    Prefab: {fileID: 2410886653998898105, guid: 41bdc379e62922941b6f29b6e5c9077d, type: 3}
+--- !u!4 &1954669051
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1954669048}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 942.96515, y: 879.39276, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -528,3 +617,4 @@ SceneRoots:
   - {fileID: 619394802}
   - {fileID: 1556575300}
   - {fileID: 985981572}
+  - {fileID: 1954669051}
