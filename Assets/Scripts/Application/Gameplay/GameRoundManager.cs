@@ -143,7 +143,7 @@ public class GameRoundManager : NetworkBehaviour
 
         if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var clientInfo) || clientInfo.PlayerObject == null)
         {
-            Debug.LogError($"GameRoundManager: No se encontr� la informaci�n del cliente o el PlayerObject para el cliente {clientId}.");
+            Debug.LogError($"GameRoundManager: No se encontro la informacion del cliente o el PlayerObject para el cliente {clientId}.");
             return;
         }
 
@@ -156,7 +156,7 @@ public class GameRoundManager : NetworkBehaviour
         CharacterType charType = (CharacterType)playerState.Character.Value;
         if (!playerPrefabsDict.TryGetValue(charType, out GameObject prefab) || prefab == null)
         {
-            Debug.LogError($"GameRoundManager: No se encontr� el prefab para CharacterType '{charType}' (Cliente {clientId}).");
+            Debug.LogError($"GameRoundManager: No se encontro el prefab para CharacterType '{charType}' (Cliente {clientId}).");
             return;
         }
 
@@ -325,17 +325,16 @@ public class GameRoundManager : NetworkBehaviour
     qteWinner = senderId;
     qteActiveOnServer = false;
 
-    Debug.Log($"[GameRoundManager] �Jugador {senderId} gan� el QTE!");
+    Debug.Log($"[GameRoundManager] Jugador {senderId} gano el QTE!");
 
     if (playerPresenters.TryGetValue(senderId, out var presenter))
     {
-        // CAMBIO CR�TICO: Llamar al ServerRpc en lugar del m�todo local
         presenter.ActivateImmunityServerRpc(5f);
         Debug.Log($"[GameRoundManager] Inmunidad de 5s activada para jugador {senderId}.");
     }
     else
     {
-        Debug.LogError($"[GameRoundManager] No se encontr� PlayerPresenter para cliente {senderId}");
+        Debug.LogError($"[GameRoundManager] No se encontro PlayerPresenter para cliente {senderId}");
     }
 
     EndQTEClientRpc(true, senderId);

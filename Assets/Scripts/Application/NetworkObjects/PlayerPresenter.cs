@@ -154,7 +154,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
         if (IsOwner)
         {
-            Debug.Log("PlayerPresenter: �Soy el due�o de este avatar! (Control Local)");
+            Debug.Log("PlayerPresenter: Soy el dueño de este avatar! (Control Local)");
             if (playerInput != null)
             {
                 playerInput.enabled = true;
@@ -165,7 +165,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
         }
         else
         {
-            Debug.Log("PlayerPresenter: Soy un cliente remoto. (Sincronizaci�n remota)");
+            Debug.Log("PlayerPresenter: Soy un cliente remoto. (Sincronizacion remota)");
             if (playerInput != null)
             {
                 playerInput.enabled = false;
@@ -189,9 +189,9 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     private void EnableLocalControl()
     {
-        // Esto deber�a habilitar el manejo de input para el due�o local
-        // Aseg�rate de que los callbacks de Input (OnMove, OnRun, OnJump) solo se ejecuten si IsOwner es true.
-        // Los m�todos de input ya tienen la comprobaci�n !IsOwner return;
+        // Esto deberia habilitar el manejo de input para el dueño local
+        // Asegurate de que los callbacks de Input (OnMove, OnRun, OnJump) solo se ejecuten si IsOwner es true.
+        // Los metodos de input ya tienen la comprobacion !IsOwner return;
     }
 
     [ServerRpc]
@@ -272,7 +272,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     public void OnPlayerHealthChanged(float newHealth)
     {
-        // L�gica de presentaci�n: por ejemplo, actualizar la barra de salud del HUD.
+        // Logica de presentacion: por ejemplo, actualizar la barra de salud del HUD.
         // Debug.Log($"Presenter {PlayerId} health updated: {newHealth}");
     }
 
@@ -315,7 +315,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     #region Network RPCs (Server Authority)
 
     /// <summary>
-    /// Owner -> Server: Env�a la intenci�n de movimiento y el estado actual.
+    /// Owner -> Server: Envia la intencion de movimiento y el estado actual.
     /// </summary>
     [ServerRpc]
     private void UpdateMovementStateServerRpc(bool isMoving, bool isRunning, bool isGrounded)
@@ -325,8 +325,8 @@ public sealed class PlayerPresenter : NetworkBehaviour
     }
 
     /// <summary>
-    /// Server -> Everyone: Sincroniza el estado de animaci�n para que se visualice correctamente.
-    /// Esto es m�s eficiente que sincronizar 3 NetworkVariables.
+    /// Server -> Everyone: Sincroniza el estado de animacion para que se visualice correctamente.
+    /// Esto es mas eficiente que sincronizar 3 NetworkVariables.
     /// </summary>
     [ClientRpc]
     private void UpdateAnimationClientRpc(bool isMoving, bool isRunning, bool isGrounded)
@@ -339,7 +339,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     }
 
     /// <summary>
-    /// Callback para clientes remotos (no due�os y no servidor) cuando la posici�n de red cambia.
+    /// Callback para clientes remotos (no dueños y no servidor) cuando la posicion de red cambia.
     /// </summary>
     private void OnNetworkPositionChanged(Vector3 previous, Vector3 current)
     {
@@ -360,7 +360,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
         if (IsImmune())
         {
-            Debug.Log($"[Server] Player {OwnerClientId} es inmune, no se aplica da�o.");
+            Debug.Log($"[Server] Player {OwnerClientId} es inmune, no se aplica daño.");
             return;
         }
 
@@ -375,7 +375,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
         // Solo loguear cuando hay cambio significativo
         if (totalDamage > 0.1f)
         {
-            Debug.Log($"[Server] Player {OwnerClientId} recibi� {totalDamage:F2} de da�o. Salud: {newHealth:F1}/{maxHealth}");
+            Debug.Log($"[Server] Player {OwnerClientId} recibio {totalDamage:F2} de daño. Salud: {newHealth:F1}/{maxHealth}");
         }
     }
 
@@ -475,8 +475,8 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
         if (IsImmune())
         {
-            Debug.Log($"PlayerPresenter: Player {PlayerId} es inmune, ignorando colisi�n letal.");
-            return; // CR�TICO: Salir antes de aplicar da�o
+            Debug.Log($"PlayerPresenter: Player {PlayerId} es inmune, ignorando colision letal.");
+            return;
         }
 
         Debug.Log($"PlayerPresenter: Player {PlayerId} collided with lethal object.");
@@ -496,13 +496,12 @@ public sealed class PlayerPresenter : NetworkBehaviour
         string prefabName = gameObject.name;
         if (!IsOwner)
         {
-            // Debug: Qui�n es el owner al recibir la entrada (no due�o)
-            Debug.Log($"[OnMove Debug - {prefabName}] NO SOY EL DUE�O. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
+            // Debug: Quien es el owner al recibir la entrada (no dueño)
+            Debug.Log($"[OnMove Debug - {prefabName}] NO SOY EL DUEÑO. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
             return;
         }
 
-        // Debug: Qui�n es el owner al recibir la entrada (due�o)
-        Debug.Log($"[OnMove Debug] SOY EL DUE�O. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
+        Debug.Log($"[OnMove Debug] SOY EL DUEÑO. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
         _moveInput = context.ReadValue<Vector2>();
     }
 
@@ -582,14 +581,14 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     #region QTE Event
 
-    public event Action<bool> OnIsImmuneChanged; // Evento que notifica cuando cambia inmunidad
+    
     private NetworkVariable<bool> _isImmune = new(
         false,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server);
 
     /// <summary>
-    /// Activa inmunidad temporal durante la duraci�n indicada.
+    /// Activa inmunidad temporal durante la duracion indicada.
     /// </summary>
     [ServerRpc(RequireOwnership = false)]
     public void ActivateImmunityServerRpc(float duration)
@@ -628,7 +627,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     }
 
     /// <summary>
-    /// Retorna si el jugador est� inmune.
+    /// Retorna si el jugador esta inmune.
     /// </summary>
     public bool IsImmune() => _isImmune.Value;
 
