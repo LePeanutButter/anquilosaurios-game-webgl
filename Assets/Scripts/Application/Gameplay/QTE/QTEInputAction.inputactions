@@ -1,0 +1,35 @@
+{
+    "version": 1,
+    "name": "QTEInputAction",
+    "maps": [
+        {
+            "name": "QTE",
+            "id": "7a18f919-094b-4133-920b-7dc1cf8cf40b",
+            "actions": [
+                {
+                    "name": "PressE",
+                    "type": "Button",
+                    "id": "00cb401a-7773-469f-b380-90bbcae3b80d",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "4d78c1d9-6362-4faf-a4f2-79ff9d265fb4",
+                    "path": "<Keyboard>/#(E)",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PressE",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

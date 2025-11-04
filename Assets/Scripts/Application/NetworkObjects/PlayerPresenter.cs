@@ -1,8 +1,11 @@
-using System.Collections.Generic;
+ï»¿using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System;
+using System.Collections;
+
 
 /// <summary>
 /// 2D player controller that moves the GameObject horizontally (X axis only).
@@ -151,7 +154,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
         if (IsOwner)
         {
-            Debug.Log("PlayerPresenter: ¡Soy el dueño de este avatar! (Control Local)");
+            Debug.Log("PlayerPresenter: ï¿½Soy el dueï¿½o de este avatar! (Control Local)");
             if (playerInput != null)
             {
                 playerInput.enabled = true;
@@ -162,7 +165,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
         }
         else
         {
-            Debug.Log("PlayerPresenter: Soy un cliente remoto. (Sincronización remota)");
+            Debug.Log("PlayerPresenter: Soy un cliente remoto. (Sincronizaciï¿½n remota)");
             if (playerInput != null)
             {
                 playerInput.enabled = false;
@@ -186,9 +189,9 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     private void EnableLocalControl()
     {
-        // Esto debería habilitar el manejo de input para el dueño local
-        // Asegúrate de que los callbacks de Input (OnMove, OnRun, OnJump) solo se ejecuten si IsOwner es true.
-        // Los métodos de input ya tienen la comprobación !IsOwner return;
+        // Esto deberï¿½a habilitar el manejo de input para el dueï¿½o local
+        // Asegï¿½rate de que los callbacks de Input (OnMove, OnRun, OnJump) solo se ejecuten si IsOwner es true.
+        // Los mï¿½todos de input ya tienen la comprobaciï¿½n !IsOwner return;
     }
 
     [ServerRpc]
@@ -251,6 +254,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     {
         ApplyAnimations();
         SetFacingDirection(_moveInput);
+        ///ApplyExponentialDamageServerRpc(Time.deltaTime);
     }
 
     /// <summary>
@@ -268,7 +272,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     public void OnPlayerHealthChanged(float newHealth)
     {
-        // Lógica de presentación: por ejemplo, actualizar la barra de salud del HUD.
+        // Lï¿½gica de presentaciï¿½n: por ejemplo, actualizar la barra de salud del HUD.
         // Debug.Log($"Presenter {PlayerId} health updated: {newHealth}");
     }
 
@@ -311,7 +315,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     #region Network RPCs (Server Authority)
 
     /// <summary>
-    /// Owner -> Server: Envía la intención de movimiento y el estado actual.
+    /// Owner -> Server: Envï¿½a la intenciï¿½n de movimiento y el estado actual.
     /// </summary>
     [ServerRpc]
     private void UpdateMovementStateServerRpc(bool isMoving, bool isRunning, bool isGrounded)
@@ -321,8 +325,8 @@ public sealed class PlayerPresenter : NetworkBehaviour
     }
 
     /// <summary>
-    /// Server -> Everyone: Sincroniza el estado de animación para que se visualice correctamente.
-    /// Esto es más eficiente que sincronizar 3 NetworkVariables.
+    /// Server -> Everyone: Sincroniza el estado de animaciï¿½n para que se visualice correctamente.
+    /// Esto es mï¿½s eficiente que sincronizar 3 NetworkVariables.
     /// </summary>
     [ClientRpc]
     private void UpdateAnimationClientRpc(bool isMoving, bool isRunning, bool isGrounded)
@@ -335,7 +339,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     }
 
     /// <summary>
-    /// Callback para clientes remotos (no dueños y no servidor) cuando la posición de red cambia.
+    /// Callback para clientes remotos (no dueï¿½os y no servidor) cuando la posiciï¿½n de red cambia.
     /// </summary>
     private void OnNetworkPositionChanged(Vector3 previous, Vector3 current)
     {
@@ -354,6 +358,12 @@ public sealed class PlayerPresenter : NetworkBehaviour
     {
         if (!IsServer || !_isAlive) return;
 
+        if (IsImmune())
+        {
+            Debug.Log($"[Server] Player {OwnerClientId} es inmune, no se aplica daï¿½o.");
+            return;
+        }
+
         float baseDamage = 5f * tickInterval;
         float missingHealth = Mathf.Max(0f, maxHealth - _currentHealth);
         float scalingDamage = Mathf.Pow(missingHealth, 1.2f) * tickInterval;
@@ -361,6 +371,12 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
         float newHealth = Mathf.Max(0f, _currentHealth - totalDamage);
         SetHealth(newHealth);
+    
+        // Solo loguear cuando hay cambio significativo
+        if (totalDamage > 0.1f)
+        {
+            Debug.Log($"[Server] Player {OwnerClientId} recibiï¿½ {totalDamage:F2} de daï¿½o. Salud: {newHealth:F1}/{maxHealth}");
+        }
     }
 
     /// <summary>
@@ -457,6 +473,12 @@ public sealed class PlayerPresenter : NetworkBehaviour
     {
         if (!IsOwner) return;
 
+        if (IsImmune())
+        {
+            Debug.Log($"PlayerPresenter: Player {PlayerId} es inmune, ignorando colisiï¿½n letal.");
+            return; // CRï¿½TICO: Salir antes de aplicar daï¿½o
+        }
+
         Debug.Log($"PlayerPresenter: Player {PlayerId} collided with lethal object.");
         HandleDeath();
     }
@@ -474,13 +496,13 @@ public sealed class PlayerPresenter : NetworkBehaviour
         string prefabName = gameObject.name;
         if (!IsOwner)
         {
-            // Debug: Quién es el owner al recibir la entrada (no dueño)
-            Debug.Log($"[OnMove Debug - {prefabName}] NO SOY EL DUEÑO. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
+            // Debug: Quiï¿½n es el owner al recibir la entrada (no dueï¿½o)
+            Debug.Log($"[OnMove Debug - {prefabName}] NO SOY EL DUEï¿½O. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
             return;
         }
 
-        // Debug: Quién es el owner al recibir la entrada (dueño)
-        Debug.Log($"[OnMove Debug] SOY EL DUEÑO. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
+        // Debug: Quiï¿½n es el owner al recibir la entrada (dueï¿½o)
+        Debug.Log($"[OnMove Debug] SOY EL DUEï¿½O. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
         _moveInput = context.ReadValue<Vector2>();
     }
 
@@ -557,4 +579,60 @@ public sealed class PlayerPresenter : NetworkBehaviour
     }
 
     #endregion
+
+    #region QTE Event
+
+    public event Action<bool> OnIsImmuneChanged; // Evento que notifica cuando cambia inmunidad
+    private NetworkVariable<bool> _isImmune = new(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server);
+
+    /// <summary>
+    /// Activa inmunidad temporal durante la duraciï¿½n indicada.
+    /// </summary>
+    [ServerRpc(RequireOwnership = false)]
+    public void ActivateImmunityServerRpc(float duration)
+    {
+        if (!IsServer) return;
+        if (!gameObject.activeInHierarchy) return;
+    
+        StartCoroutine(ImmunityRoutine(duration));
+    }
+
+    /// <summary>
+    /// Corrutina que maneja el estado de inmunidad y dispara el evento.
+    /// </summary>
+    private IEnumerator ImmunityRoutine(float duration)
+    {
+        SetImmune(true);
+        Debug.Log($"[PlayerPresenter {OwnerClientId}] Player is now immune!");
+
+        yield return new WaitForSeconds(duration);
+
+        SetImmune(false);
+        Debug.Log($"[PlayerPresenter {OwnerClientId}] Immunity ended.");
+    }
+
+    /// <summary>
+    /// Setter que actualiza el estado de inmunidad y dispara el evento.
+    /// </summary>
+    private void SetImmune(bool value)
+    {
+        if (!IsServer) return; // Solo el servidor puede cambiar inmunidad
+    
+        if (_isImmune.Value == value) return;
+
+        _isImmune.Value = value;
+        Debug.Log($"[PlayerPresenter {OwnerClientId}] Inmunidad cambiada a: {value}");
+    }
+
+    /// <summary>
+    /// Retorna si el jugador estï¿½ inmune.
+    /// </summary>
+    public bool IsImmune() => _isImmune.Value;
+
+
+    #endregion
+
 }

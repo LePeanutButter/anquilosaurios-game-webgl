@@ -1,5 +1,6 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -38,7 +39,16 @@ public class GameRoundManager : NetworkBehaviour
     [SerializeField] private List<PlayerPrefabEntry> playerPrefabsMap;
     private Dictionary<CharacterType, GameObject> playerPrefabsDict = new();
 
+    [Header("QTE Settings")]
+    [SerializeField] private float qteInputWindow = 2f;
+
     private Coroutine spawnRoutine;
+    private Coroutine qteRoutine;
+    private Dictionary<ulong, PlayerPresenter> playerPresenters = new();
+
+    private bool qteActiveOnServer = false;
+    private ulong? qteWinner = null;
+    private float qteStartTimeServer = 0f;
 
     private NetworkVariable<float> remainingTime = new(writePerm: NetworkVariableWritePermission.Server);
 
@@ -133,7 +143,7 @@ public class GameRoundManager : NetworkBehaviour
 
         if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var clientInfo) || clientInfo.PlayerObject == null)
         {
-            Debug.LogError($"GameRoundManager: No se encontró la información del cliente o el PlayerObject para el cliente {clientId}.");
+            Debug.LogError($"GameRoundManager: No se encontrï¿½ la informaciï¿½n del cliente o el PlayerObject para el cliente {clientId}.");
             return;
         }
 
@@ -146,7 +156,7 @@ public class GameRoundManager : NetworkBehaviour
         CharacterType charType = (CharacterType)playerState.Character.Value;
         if (!playerPrefabsDict.TryGetValue(charType, out GameObject prefab) || prefab == null)
         {
-            Debug.LogError($"GameRoundManager: No se encontró el prefab para CharacterType '{charType}' (Cliente {clientId}).");
+            Debug.LogError($"GameRoundManager: No se encontrï¿½ el prefab para CharacterType '{charType}' (Cliente {clientId}).");
             return;
         }
 
@@ -173,6 +183,8 @@ public class GameRoundManager : NetworkBehaviour
         presenter.transform.position = spawnPos;
 
         netObj.SpawnWithOwnership(clientId);
+
+        playerPresenters[clientId] = presenter;
     }
 
 
@@ -192,6 +204,7 @@ public class GameRoundManager : NetworkBehaviour
         float spawnInterval = initialSpawnInterval;
 
         remainingTime.Value = matchDurationSeconds;
+        qteRoutine = StartCoroutine(QTERoutine());
 
         while (remainingTime.Value > 0)
         {
@@ -213,6 +226,45 @@ public class GameRoundManager : NetworkBehaviour
         }
 
         EndRoundServerRpc();
+    }
+
+    [ClientRpc] private void StartQTEClientRpc()
+    {
+        if (QTEManager.Instance != null)
+            QTEManager.Instance.StartQTE();
+    }
+
+    [ClientRpc] private void EndQTEClientRpc(bool hasWinner, ulong winnerClientId)
+    {
+        if (QTEManager.Instance != null)
+            QTEManager.Instance.ForceEndQTE(hasWinner ? (ulong?)winnerClientId : null);
+    }
+
+    private IEnumerator QTERoutine()
+    {
+        yield return new WaitForSeconds(10f);
+
+        qteActiveOnServer = true;
+        qteWinner = null;
+        qteStartTimeServer = Time.time;
+        StartQTEClientRpc();
+
+        float t = 0f;
+        while (t < qteInputWindow && qteActiveOnServer)
+        {
+            t += Time.deltaTime;
+            yield return null;
+        }
+
+        if (!qteWinner.HasValue)
+        {
+            qteActiveOnServer = false;
+            EndQTEClientRpc(false, 0);
+        }
+        else
+        {
+            EndQTEClientRpc(true, qteWinner.Value);
+        }
     }
 
     private void SpawnLethalServer()
@@ -250,4 +302,42 @@ public class GameRoundManager : NetworkBehaviour
     }
 
     public float GetRemainingTime() => remainingTime.Value;
+
+    [ServerRpc(RequireOwnership = false)]
+    public void ReportQTEPressServerRpc(ServerRpcParams rpcParams = default)
+    {
+        if (!IsServer) return;
+
+        ulong senderId = rpcParams.Receive.SenderClientId;
+        RegisterQTEPressFromClient(senderId);
+    }
+        
+    public void RegisterQTEPressFromClient(ulong senderId)
+    {
+        if (!IsServer) return;
+
+    if (!qteActiveOnServer || qteWinner.HasValue) 
+    {
+        Debug.Log($"[GameRoundManager] QTE ya finalizado o no activo. Ignorando press de {senderId}");
+        return;
+    }
+
+    qteWinner = senderId;
+    qteActiveOnServer = false;
+
+    Debug.Log($"[GameRoundManager] ï¿½Jugador {senderId} ganï¿½ el QTE!");
+
+    if (playerPresenters.TryGetValue(senderId, out var presenter))
+    {
+        // CAMBIO CRï¿½TICO: Llamar al ServerRpc en lugar del mï¿½todo local
+        presenter.ActivateImmunityServerRpc(5f);
+        Debug.Log($"[GameRoundManager] Inmunidad de 5s activada para jugador {senderId}.");
+    }
+    else
+    {
+        Debug.LogError($"[GameRoundManager] No se encontrï¿½ PlayerPresenter para cliente {senderId}");
+    }
+
+    EndQTEClientRpc(true, senderId);
+    }
 }
