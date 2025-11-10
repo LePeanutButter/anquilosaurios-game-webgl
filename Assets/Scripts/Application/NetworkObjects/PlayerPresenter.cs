@@ -496,7 +496,6 @@ public sealed class PlayerPresenter : NetworkBehaviour
         string prefabName = gameObject.name;
         if (!IsOwner)
         {
-            // Debug: Quien es el owner al recibir la entrada (no dueño)
             Debug.Log($"[OnMove Debug - {prefabName}] NO SOY EL DUEÑO. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
             return;
         }

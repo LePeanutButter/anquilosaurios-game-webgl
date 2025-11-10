@@ -44,12 +44,6 @@ public class GameRoundManager : NetworkBehaviour
 
     [Header("QTE Settings")]
     [SerializeField] private float qteInputWindow = 2f;
-    private Coroutine spawnRoutine;
-    private Coroutine qteRoutine;
-    private Dictionary<ulong, PlayerPresenter> playerPresenters = new();
-    private bool qteActiveOnServer = false;
-    private ulong? qteWinner = null;
-    private float qteStartTimeServer = 0f;
 
     [Header("HUD")]
     [SerializeField] private TMP_Text timeTextHud;
@@ -61,6 +55,11 @@ public class GameRoundManager : NetworkBehaviour
     #region Private Fields
 
     private Coroutine spawnRoutine;
+    private Coroutine qteRoutine;
+    private Dictionary<ulong, PlayerPresenter> playerPresenters = new();
+    private bool qteActiveOnServer = false;
+    private ulong? qteWinner = null;
+    private float qteStartTimeServer = 0f;
     private NetworkVariable<float> remainingTime = new(writePerm: NetworkVariableWritePermission.Server);
 
     #endregion
