@@ -187,11 +187,34 @@ public class GameRoundManager : NetworkBehaviour
         presenter.transform.position = spawnPos;
 
         netObj.SpawnWithOwnership(clientId);
-        SpawnPlayerHealthHudClientRpc(netObj.NetworkObjectId);
+
+        SpawnPlayerHUDClientRpc(netObj.NetworkObjectId, new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams
+            {
+                TargetClientIds = new ulong[] { clientId }
+            }
+        });
     }
 
+    [ClientRpc]
+    private void SpawnPlayerHUDClientRpc(ulong networkObjectId, ClientRpcParams rpcParams = default)
+    {
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkObjectId, out NetworkObject netObj))
+            return;
+
+        if (netObj.IsOwner)
+        {
+            var hudInstance = Instantiate(playerHealthHudPrefab, healthHudParent);
+            var hudScript = hudInstance.GetComponent<HealthBarHUD>();
+
+            hudScript.Initialize(netObj.GetComponent<PlayerPresenter>());
+        }
+    }
+
+
     #endregion
-    
+
     #region Update
 
     private void Update()
@@ -217,26 +240,6 @@ public class GameRoundManager : NetworkBehaviour
     #endregion
 
     #region Network RPCs (Server Authority)
-
-    [ClientRpc]
-    private void SpawnPlayerHealthHudClientRpc(ulong playerNetworkObjectId)
-    {
-        if (playerHealthHudPrefab == null || healthHudParent == null)
-        {
-            Debug.LogError("GameRoundManager: playerHealthHudPrefab o healthHudParent no están asignados.");
-            return;
-        }
-
-        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(playerNetworkObjectId, out NetworkObject netObj))
-        {
-            Debug.LogError($"GameRoundManager: No se pudo encontrar el NetworkObject con ID: {playerNetworkObjectId}.");
-            return;
-        }
-
-        GameObject hudInstance = Instantiate(playerHealthHudPrefab, healthHudParent);
-
-        Debug.Log($"GameRoundManager: Cliente {NetworkManager.Singleton.LocalClientId} instanció HUD para el jugador {playerNetworkObjectId}.");
-    }
 
     [ServerRpc(RequireOwnership = false)]
     private void StartRoundServerRpc()
@@ -279,6 +282,9 @@ public class GameRoundManager : NetworkBehaviour
 
     private void SpawnLethalServer()
     {
+        if (!IsServer || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+            return;
+
         if (lethalPrefab == null || Camera.main == null)
             return;
 

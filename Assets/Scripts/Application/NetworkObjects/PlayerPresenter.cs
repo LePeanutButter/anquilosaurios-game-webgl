@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 /// Uses Unity's Input System and Rigidbody2D for physics-based movement.
 /// Supports walking, running, jumping, and ground detection.
 /// </summary>
-[RequireComponent(typeof(Rigidbody2D), typeof(Collider2D), typeof(NetworkTransform))]
+[RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
 public sealed class PlayerPresenter : NetworkBehaviour
 {
     #region Inspector Fields
@@ -34,7 +34,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     private float serverSyncRate = 0.05f;
 
     [Header("Health Settings")]
-    [SerializeField] private float maxHealth = 100f;
+    [SerializeField] private static float maxHealth = 100f;
 
     #endregion
 
@@ -49,19 +49,21 @@ public sealed class PlayerPresenter : NetworkBehaviour
     private bool _isGrounded;
     private float _syncTimer;
     private float _currentHealth;
+    private float _lastMoveTime;
     private bool _isAlive = true;
 
-    private bool _isMovingSync;
-
     private NetworkVariable<Vector3> _networkPosition = new(
-    writePerm: NetworkVariableWritePermission.Server,
-    readPerm: NetworkVariableReadPermission.Everyone);
+        writePerm: NetworkVariableWritePermission.Server,
+        readPerm: NetworkVariableReadPermission.Everyone);
+    private NetworkVariable<float> _networkHealth = new NetworkVariable<float>(
+        maxHealth,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
 
     private static readonly int IsMovingParam = Animator.StringToHash("IsMoving");
     private static readonly int IsRunningParam = Animator.StringToHash("IsRunning");
     private static readonly int IsGroundedParam = Animator.StringToHash("IsGrounded");
-
-    private NetworkTransform _netTransform;
 
     #endregion
 
@@ -82,7 +84,9 @@ public sealed class PlayerPresenter : NetworkBehaviour
     /// </summary>
     public ulong PlayerId => _playerState != null ? _playerState.PlayerId.Value : OwnerClientId;
 
-    public float CurrentHealth => _currentHealth;
+    public float CurrentHealth => _networkHealth.Value;
+
+    public float MaxHealth => maxHealth;
     public bool IsAlive => _isAlive;
 
     #endregion
@@ -123,12 +127,6 @@ public sealed class PlayerPresenter : NetworkBehaviour
         _rb.interpolation = useInterpolation
             ? RigidbodyInterpolation2D.Interpolate
             : RigidbodyInterpolation2D.None;
-
-        _netTransform = GetComponent<NetworkTransform>();
-        _netTransform.Interpolate = true;
-        _netTransform.SyncPositionX = true;
-        _netTransform.SyncPositionY = true;
-        _netTransform.UseHalfFloatPrecision = false;
     }
 
     public void InitializePresenter(PlayerState state)
@@ -147,6 +145,12 @@ public sealed class PlayerPresenter : NetworkBehaviour
         base.OnNetworkSpawn();
 
         PlayerInput playerInput = GetComponent<PlayerInput>();
+
+        if (IsServer)
+        {
+            _currentHealth = maxHealth;
+            _isAlive = true;
+        }
 
         if (IsOwner)
         {
@@ -216,19 +220,33 @@ public sealed class PlayerPresenter : NetworkBehaviour
             float targetSpeed = horizontal * CurrentSpeed;
             _rb.linearVelocity = new Vector2(targetSpeed, _rb.linearVelocity.y);
 
-            if (IsServer)
-            {
-                ServerAuthoritySync();
-            }
-            else
+            if (!IsServer)
             {
                 UpdateMovementStateServerRpc(IsMoving(), _isRunning, _isGrounded);
             }
         }
 
-        if (IsServer && !IsOwner)
+        if (IsServer)
         {
             ServerAuthoritySync();
+            float tickInterval = Time.fixedDeltaTime;
+
+            bool moving = IsMoving();
+
+            if (moving)
+            {
+                _lastMoveTime = Time.time;
+                ApplyLinearRecoveryServerRpc(tickInterval);
+            }
+            else
+            {
+                float timeSinceMove = Time.time - _lastMoveTime;
+                if (timeSinceMove >= 0.2f)
+                {
+                    ApplyExponentialDamageServerRpc(tickInterval);
+                }
+            }
+            Debug.Log($"PlayerPresenter: Player {PlayerId} health is {_currentHealth}");
         }
     }
 
@@ -249,7 +267,10 @@ public sealed class PlayerPresenter : NetworkBehaviour
     private void Update()
     {
         ApplyAnimations();
-        SetFacingDirection(_moveInput);
+        if (IsOwner)
+        {
+            SetFacingDirection(_moveInput);
+        }
     }
 
     /// <summary>
@@ -392,8 +413,10 @@ public sealed class PlayerPresenter : NetworkBehaviour
     /// <param name="newHealth">New health value.</param>
     private void SetHealth(float newHealth)
     {
+        if (!IsServer) return;
         _currentHealth = newHealth;
         _isAlive = _currentHealth > 0f;
+        _networkHealth.Value = _currentHealth;
     }
 
     #endregion
@@ -429,7 +452,20 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     private void CheckGrounded()
     {
-        _isGrounded = Physics2D.OverlapCircle(groundCheckPoint.position, groundCheckRadius, groundLayer);
+        _isGrounded = false;
+        Collider2D[] colliders = Physics2D.OverlapCircleAll(groundCheckPoint.position, groundCheckRadius);
+
+        foreach (var col in colliders)
+        {
+            if (col.gameObject == gameObject)
+                continue;
+
+            if (((1 << col.gameObject.layer) & groundLayer) != 0 || col.gameObject.layer == LayerMask.NameToLayer("Player"))
+            {
+                _isGrounded = true;
+                break;
+            }
+        }
     }
 
 
@@ -471,15 +507,8 @@ public sealed class PlayerPresenter : NetworkBehaviour
     public void OnMove(InputAction.CallbackContext context)
     {
         string prefabName = gameObject.name;
-        if (!IsOwner)
-        {
-            // Debug: Quién es el owner al recibir la entrada (no dueño)
-            Debug.Log($"[OnMove Debug - {prefabName}] NO SOY EL DUEÑO. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
-            return;
-        }
+        if (!IsOwner) return;
 
-        // Debug: Quién es el owner al recibir la entrada (dueño)
-        Debug.Log($"[OnMove Debug] SOY EL DUEÑO. OwnerClientId: {OwnerClientId}, Mi ClientId: {NetworkManager.Singleton.LocalClientId}");
         _moveInput = context.ReadValue<Vector2>();
     }
 
