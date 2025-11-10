@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -23,7 +23,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     [SerializeField, Tooltip("Run speed multiplier."), Range(1f, 5f)]
     private float runSpeed = 1.8f;
     [SerializeField, Tooltip("Velocidad vertical inicial del salto (unidades/seg).")]
-    private float jumpVelocity = 8f;
+    private float jumpVelocity = 8.5f;
     [SerializeField, Tooltip("Enable Rigidbody2D interpolation for smooth movement.")]
     private bool useInterpolation = true;
 
@@ -371,7 +371,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
         float newHealth = Mathf.Max(0f, _currentHealth - totalDamage);
         SetHealth(newHealth);
-    
+
         // Solo loguear cuando hay cambio significativo
         if (totalDamage > 0.1f)
         {
@@ -581,7 +581,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     #region QTE Event
 
-    
+
     private NetworkVariable<bool> _isImmune = new(
         false,
         NetworkVariableReadPermission.Everyone,
@@ -595,7 +595,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     {
         if (!IsServer) return;
         if (!gameObject.activeInHierarchy) return;
-    
+
         StartCoroutine(ImmunityRoutine(duration));
     }
 
@@ -619,7 +619,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     private void SetImmune(bool value)
     {
         if (!IsServer) return; // Solo el servidor puede cambiar inmunidad
-    
+
         if (_isImmune.Value == value) return;
 
         _isImmune.Value = value;
