@@ -561,107 +561,11 @@ MonoBehaviour:
   m_AtlasHeight: 1024
   m_AtlasPadding: 10
   m_AtlasRenderMode: 4165
-  m_UsedGlyphRects:
-  - m_X: 0
-    m_Y: 0
-    m_Width: 98
-    m_Height: 36
-  - m_X: 98
-    m_Y: 0
-    m_Width: 98
-    m_Height: 130
-  - m_X: 0
-    m_Y: 36
-    m_Width: 98
-    m_Height: 130
-  - m_X: 0
-    m_Y: 166
-    m_Width: 67
-    m_Height: 130
-  - m_X: 0
-    m_Y: 296
-    m_Width: 98
-    m_Height: 130
-  - m_X: 67
-    m_Y: 166
-    m_Width: 98
-    m_Height: 130
-  - m_X: 0
-    m_Y: 426
-    m_Width: 98
-    m_Height: 130
-  - m_X: 0
-    m_Y: 556
-    m_Width: 98
-    m_Height: 130
-  - m_X: 0
-    m_Y: 686
-    m_Width: 98
-    m_Height: 130
-  - m_X: 0
-    m_Y: 816
-    m_Width: 98
-    m_Height: 130
-  - m_X: 98
-    m_Y: 296
-    m_Width: 98
-    m_Height: 130
-  - m_X: 165
-    m_Y: 130
-    m_Width: 98
-    m_Height: 130
-  - m_X: 196
-    m_Y: 0
-    m_Width: 98
-    m_Height: 130
-  - m_X: 98
-    m_Y: 426
-    m_Width: 98
-    m_Height: 130
-  - m_X: 98
-    m_Y: 556
-    m_Width: 98
-    m_Height: 130
-  - m_X: 98
-    m_Y: 686
-    m_Width: 98
-    m_Height: 130
-  - m_X: 98
-    m_Y: 816
-    m_Width: 98
-    m_Height: 130
-  - m_X: 294
-    m_Y: 0
-    m_Width: 98
-    m_Height: 130
-  - m_X: 392
-    m_Y: 0
-    m_Width: 98
-    m_Height: 130
+  m_UsedGlyphRects: []
   m_FreeGlyphRects:
   - m_X: 0
-    m_Y: 946
-    m_Width: 1023
-    m_Height: 77
-  - m_X: 196
-    m_Y: 260
-    m_Width: 827
-    m_Height: 763
-  - m_X: 98
-    m_Y: 130
-    m_Width: 67
-    m_Height: 36
-  - m_X: 165
-    m_Y: 260
-    m_Width: 858
-    m_Height: 36
-  - m_X: 263
-    m_Y: 130
-    m_Width: 760
-    m_Height: 893
-  - m_X: 490
     m_Y: 0
-    m_Width: 533
+    m_Width: 1023
     m_Height: 1023
   m_FontFeatureTable:
     m_MultipleSubstitutionRecords: []
@@ -758,9 +662,9 @@ Texture2D:
     Hash: 00000000000000000000000000000000
   m_IsAlphaChannelOptional: 0
   serializedVersion: 4
-  m_Width: 1024
-  m_Height: 1024
-  m_CompleteImageSize: 1048576
+  m_Width: 1
+  m_Height: 1
+  m_CompleteImageSize: 1
   m_MipsStripped: 0
   m_TextureFormat: 1
   m_MipCount: 1
