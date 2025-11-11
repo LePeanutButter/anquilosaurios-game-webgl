@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
@@ -44,6 +43,7 @@ public class GameRoundManager : NetworkBehaviour
 
     [Header("QTE Settings")]
     [SerializeField] private float qteInputWindow = 2f;
+    [SerializeField] private float qteTimeScale = 0.2f;
 
     [Header("HUD")]
     [SerializeField] private TMP_Text timeTextHud;
@@ -60,12 +60,16 @@ public class GameRoundManager : NetworkBehaviour
     private bool qteActiveOnServer = false;
     private ulong? qteWinner = null;
     private float qteStartTimeServer = 0f;
+    private float originalTimeScale = 1f;
     private NetworkVariable<float> remainingTime = new(writePerm: NetworkVariableWritePermission.Server);
 
     #endregion
 
     #region Initialization & Network Spawn
 
+    /// <summary>
+    /// Ensures singleton instance and initializes player prefabs dictionary.
+    /// </summary>
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -78,6 +82,9 @@ public class GameRoundManager : NetworkBehaviour
         InitializePlayerPrefabsDict();
     }
 
+    /// <summary>
+    /// Initializes the dictionary mapping CharacterType to corresponding prefab.
+    /// </summary>
     private void InitializePlayerPrefabsDict()
     {
         playerPrefabsDict.Clear();
@@ -86,16 +93,19 @@ public class GameRoundManager : NetworkBehaviour
         {
             if (playerPrefabsDict.ContainsKey(entry.Type))
             {
-                Debug.LogWarning($"GameRoundManager: El CharacterType '{entry.Type}' ya existe en el diccionario. Se ignora la entrada duplicada.");
+                Debug.LogWarning($"GameRoundManager: CharacterType '{entry.Type}' already exists in the dictionary. Duplicate entry ignored.");
                 continue;
             }
 
             playerPrefabsDict.Add(entry.Type, entry.Prefab);
         }
 
-        Debug.Log($"GameRoundManager: Diccionario de Player Prefabs inicializado con {playerPrefabsDict.Count} entradas.");
+        Debug.Log($"GameRoundManager: Player prefab dictionary initialized with {playerPrefabsDict.Count} entries.");
     }
 
+    /// <summary>
+    /// Called when the object is spawned on the network.
+    /// </summary>
     public override void OnNetworkSpawn()
     {
         if (IsServer)
@@ -105,6 +115,9 @@ public class GameRoundManager : NetworkBehaviour
         }
     }
 
+    /// <summary>
+    /// Initializes the game round on the server: generates map, spawns players, and starts the match.
+    /// </summary>
     private IEnumerator ServerInitializeRound()
     {
         yield return new WaitForSeconds(1f);
@@ -121,6 +134,9 @@ public class GameRoundManager : NetworkBehaviour
         StartRoundServerRpc();
     }
 
+    /// <summary>
+    /// Randomly generates and spawns the map prefab on the server.
+    /// </summary>
     private void GenerateMap()
     {
         if (!IsServer)
@@ -204,7 +220,32 @@ public class GameRoundManager : NetworkBehaviour
                 TargetClientIds = new ulong[] { clientId }
             }
         });
+
         playerPresenters[clientId] = presenter;
+
+        presenter.OnDeath += () =>
+        {
+            ulong ownerClientId = presenter.OwnerClientId;
+
+            if (NetworkManager.Singleton.ConnectedClients.TryGetValue(ownerClientId, out var clientInfo))
+            {
+                var playerState = clientInfo.PlayerObject.GetComponent<PlayerState>();
+                if (playerState != null)
+                {
+                    playerState.AddDeathServerRpc();
+                }
+                else
+                {
+                    Debug.LogError($"PlayerState not found on PlayerObject of client {ownerClientId}");
+                }
+            }
+            else
+            {
+                Debug.LogError($"No client information found for ClientId {ownerClientId}");
+            }
+
+            CheckRoundEndByDeaths();
+        };
     }
 
     [ClientRpc]
@@ -246,6 +287,23 @@ public class GameRoundManager : NetworkBehaviour
 
         timeTextHud.text = string.Format("{0:00}:{1:00}", minutes, seconds);
     }
+
+    private void CheckRoundEndByDeaths()
+    {
+        var alivePlayers = new List<PlayerPresenter>();
+
+        foreach (var presenter in playerPresenters.Values)
+        {
+            if (presenter != null && presenter.IsAlive)
+                alivePlayers.Add(presenter);
+        }
+
+        if (alivePlayers.Count <= 1)
+        {
+            EndRoundServerRpc();
+        }
+    }
+
 
     #endregion
 
@@ -292,7 +350,7 @@ public class GameRoundManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void StartQTEClientRpc()
+    private void StartQTEClientRpc(ClientRpcParams rpcParams = default)
     {
         if (QTEManager.Instance != null)
             QTEManager.Instance.StartQTE();
@@ -312,14 +370,30 @@ public class GameRoundManager : NetworkBehaviour
         qteActiveOnServer = true;
         qteWinner = null;
         qteStartTimeServer = Time.time;
-        StartQTEClientRpc();
+
+        var aliveIds = new List<ulong>(GetAlivePlayerIds());
+        if (aliveIds.Count > 0)
+        {
+            originalTimeScale = Time.timeScale;
+            Time.timeScale = qteTimeScale;
+
+            StartQTEClientRpc(new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams
+                {
+                    TargetClientIds = aliveIds
+                }
+            });
+        }
 
         float t = 0f;
         while (t < qteInputWindow && qteActiveOnServer)
         {
-            t += Time.deltaTime;
+            t += Time.unscaledDeltaTime;
             yield return null;
         }
+
+        Time.timeScale = originalTimeScale;
 
         if (!qteWinner.HasValue)
         {
@@ -329,6 +403,16 @@ public class GameRoundManager : NetworkBehaviour
         else
         {
             EndQTEClientRpc(true, qteWinner.Value);
+        }
+    }
+
+    private IEnumerable<ulong> GetAlivePlayerIds()
+    {
+        foreach (var kvp in playerPresenters)
+        {
+            var presenter = kvp.Value;
+            if (presenter != null && presenter.IsAlive)
+                yield return kvp.Key;
         }
     }
 
@@ -367,6 +451,60 @@ public class GameRoundManager : NetworkBehaviour
         Debug.Log("GameRoundManager: Match ended!");
         if (spawnRoutine != null)
             StopCoroutine(spawnRoutine);
+
+        foreach (var presenter in playerPresenters.Values)
+        {
+            if (presenter != null && presenter.IsAlive)
+            {
+                ulong ownerClientId = presenter.OwnerClientId;
+                if (NetworkManager.Singleton.ConnectedClients.TryGetValue(ownerClientId, out var clientInfo))
+                {
+                    var playerState = clientInfo.PlayerObject.GetComponent<PlayerState>();
+                    playerState?.AddRoundWinServerRpc();
+                }
+            }
+        }
+
+        NotifyRoundInterfaceOfEnd();
+
+        StartCoroutine(LoadRoundInterfaceScene());
+    }
+
+    private void NotifyRoundInterfaceOfEnd()
+    {
+        var roundInterfaceObj = FindFirstObjectByType<RoundManager>();
+        if (roundInterfaceObj != null)
+        {
+            roundInterfaceObj.OnRoundEndedServerRpc();
+            Debug.Log("GameRoundManager: Notified RoundInterfaceManager of the end of the round.");
+        }
+        else
+        {
+            Debug.LogWarning("GameRoundManager: No active RoundInterfaceManager found at the end of the round.");
+        }
+    }
+
+    private IEnumerator LoadRoundInterfaceScene()
+    {
+        yield return null;
+
+        if (IsServer)
+        {
+            foreach (var presenter in playerPresenters.Values)
+            {
+                if (presenter != null && presenter.NetworkObject != null && presenter.NetworkObject.IsSpawned)
+                {
+                    presenter.NetworkObject.Despawn(true);
+                }
+            }
+
+            playerPresenters.Clear();
+
+            NetworkManager.Singleton.SceneManager.LoadScene(
+                "RoundInterface",
+                UnityEngine.SceneManagement.LoadSceneMode.Single
+            );
+        }
     }
 
     public float GetRemainingTime() => remainingTime.Value;

@@ -3,20 +3,20 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TMPro;
-using Unity.Netcode; // <<--- necesario para NetworkManager
+using Unity.Netcode;
 
 public class QTEManager : MonoBehaviour
 {
     public static QTEManager Instance { get; private set; }
 
     [Header("QTE Settings")]
-    [SerializeField] private float qteDuration = 5f;    // ahora se usa para mostrar tiempo de inmunidad en UI
-    [SerializeField] private float inputWindow = 2f;    // debe coincidir con qteInputWindow del servidor
+    [SerializeField] private float qteDuration = 5f;
+    [SerializeField] private float inputWindow = 2f;
     [SerializeField] private TextMeshProUGUI qteText;
-    [SerializeField] private Canvas qteCanvas;
+    [SerializeField] private GameObject qtePanel;
 
     [Header("Input Actions")]
-    [SerializeField] private InputActionAsset inputActionsAsset; // arrastra tu .inputactions aquí
+    [SerializeField] private InputActionAsset inputActionsAsset;
     private InputAction qteAction;
 
     private bool isActive;
@@ -35,8 +35,8 @@ public class QTEManager : MonoBehaviour
 
         Instance = this;
 
-        if (qteCanvas != null)
-            qteCanvas.enabled = false;
+        if (qtePanel != null)
+            qtePanel.SetActive(false);
 
         if (inputActionsAsset != null)
         {
@@ -74,7 +74,7 @@ public class QTEManager : MonoBehaviour
         inputSent = false;
         timer = 0f;
 
-        if (qteCanvas != null) qteCanvas.enabled = true;
+        if (qtePanel != null) qtePanel.SetActive(true);
         if (qteText != null) qteText.text = "¡Presiona <b>E</b> rápidamente!";
 
         StartCoroutine(QTECountdown());
@@ -90,7 +90,7 @@ public class QTEManager : MonoBehaviour
             if (timer >= inputWindow && !inputSent)
             {
                 isActive = false;
-                if (qteCanvas != null) qteCanvas.enabled = false;
+                if (qtePanel != null) qtePanel.SetActive(false);
                 Debug.Log("QTEManager: Input window expired locally.");
             }
 
@@ -123,7 +123,7 @@ public class QTEManager : MonoBehaviour
             Debug.LogWarning("QTEManager: GameRoundManager.Instance es null en este cliente.");
         }
 
-        if (qteCanvas != null) qteCanvas.enabled = false;
+        if (qtePanel != null) qtePanel.SetActive(false);
         isActive = false;
     }
 
@@ -132,7 +132,7 @@ public class QTEManager : MonoBehaviour
         isActive = false;
         inputSent = false;
 
-        if (qteCanvas != null) qteCanvas.enabled = false;
+        if (qtePanel != null) qtePanel.SetActive(false);
 
         if (winnerClientId.HasValue)
         {

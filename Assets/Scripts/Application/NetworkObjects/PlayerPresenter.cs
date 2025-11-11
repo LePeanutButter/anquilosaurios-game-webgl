@@ -12,7 +12,7 @@ using System.Collections;
 /// Uses Unity's Input System and Rigidbody2D for physics-based movement.
 /// Supports walking, running, jumping, and ground detection.
 /// </summary>
-[RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
+[RequireComponent(typeof(Rigidbody2D), typeof(Collider2D), typeof(NetworkTransform))]
 public sealed class PlayerPresenter : NetworkBehaviour
 {
     #region Inspector Fields
@@ -33,10 +33,6 @@ public sealed class PlayerPresenter : NetworkBehaviour
     [SerializeField] private Transform groundCheckPoint;
     [SerializeField] private float groundCheckRadius = 0.1f;
 
-    [Header("Server Authority Settings")]
-    [SerializeField, Tooltip("Rate at which the server synchronizes position and state to non-owners.")]
-    private float serverSyncRate = 0.05f;
-
     [Header("Health Settings")]
     [SerializeField] private static float maxHealth = 100f;
 
@@ -46,23 +42,23 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     private Rigidbody2D _rb;
     private Collider2D _collider;
+    private NetworkTransform _netTransform;
     private Animator _animator;
     private PlayerState _playerState;
     private Vector2 _moveInput;
     private bool _isRunning;
     private bool _isGrounded;
-    private float _syncTimer;
     private float _currentHealth;
     private float _lastMoveTime;
     private bool _isAlive = true;
 
-    private NetworkVariable<Vector3> _networkPosition = new(
-        writePerm: NetworkVariableWritePermission.Server,
-        readPerm: NetworkVariableReadPermission.Everyone);
     private NetworkVariable<float> _networkHealth = new NetworkVariable<float>(
         maxHealth,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
+    );
+    private NetworkVariable<bool> _networkIsAlive = new NetworkVariable<bool>(
+        true, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
     );
 
     private static readonly int IsMovingParam = Animator.StringToHash("IsMoving");
@@ -73,25 +69,18 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     #region Public Properties
 
-    /// <summary>
-    /// Current movement speed based on walk speed and run multiplier.
-    /// </summary>
     public float CurrentSpeed => walkSpeed * (_isRunning ? runSpeed : 1f);
 
-    /// <summary>
-    /// Indicates whether the player is currently grounded.
-    /// </summary>
     public bool IsGrounded => _isGrounded;
 
-    // <summary>
-    /// PlayerId now references PlayerState's value.
-    /// </summary>
     public ulong PlayerId => _playerState != null ? _playerState.PlayerId.Value : OwnerClientId;
 
     public float CurrentHealth => _networkHealth.Value;
 
     public float MaxHealth => maxHealth;
     public bool IsAlive => _isAlive;
+
+    public event Action OnDeath;
 
     #endregion
 
@@ -105,6 +94,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     {
         _rb = GetComponent<Rigidbody2D>();
         _collider = GetComponent<Collider2D>();
+        _netTransform = GetComponent<NetworkTransform>();
         _animator = GetComponent<Animator>();
 
         if (_rb == null)
@@ -128,6 +118,11 @@ public sealed class PlayerPresenter : NetworkBehaviour
             return;
         }
 
+        if (_netTransform == null)
+        {
+            Debug.LogError("PlayerController requires a NetworkTransform component.");
+        }
+
         _rb.interpolation = useInterpolation
             ? RigidbodyInterpolation2D.Interpolate
             : RigidbodyInterpolation2D.None;
@@ -147,6 +142,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
+        _networkIsAlive.OnValueChanged += OnIsAliveChanged;
 
         PlayerInput playerInput = GetComponent<PlayerInput>();
 
@@ -165,7 +161,6 @@ public sealed class PlayerPresenter : NetworkBehaviour
             }
 
             EnableLocalControl();
-            RequestPositionUpdateServerRpc(transform.position);
         }
         else
         {
@@ -175,20 +170,19 @@ public sealed class PlayerPresenter : NetworkBehaviour
                 playerInput.enabled = false;
             }
         }
+    }
 
-        if (!IsOwner && !IsServer)
+    private void OnIsAliveChanged(bool previousValue, bool newValue)
+    {
+        if (!newValue)
         {
-            _networkPosition.OnValueChanged += OnNetworkPositionChanged;
+            HandleRemoteDeath();
         }
     }
 
     public override void OnNetworkDespawn()
     {
         base.OnNetworkDespawn();
-        if (!IsOwner && !IsServer)
-        {
-            _networkPosition.OnValueChanged -= OnNetworkPositionChanged;
-        }
     }
 
     private void EnableLocalControl()
@@ -196,12 +190,6 @@ public sealed class PlayerPresenter : NetworkBehaviour
         // Esto deberia habilitar el manejo de input para el dueño local
         // Asegurate de que los callbacks de Input (OnMove, OnRun, OnJump) solo se ejecuten si IsOwner es true.
         // Los metodos de input ya tienen la comprobacion !IsOwner return;
-    }
-
-    [ServerRpc]
-    private void RequestPositionUpdateServerRpc(Vector3 newPosition)
-    {
-        _networkPosition.Value = newPosition;
     }
 
     #endregion
@@ -232,7 +220,6 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
         if (IsServer)
         {
-            ServerAuthoritySync();
             float tickInterval = Time.fixedDeltaTime;
 
             bool moving = IsMoving();
@@ -251,20 +238,6 @@ public sealed class PlayerPresenter : NetworkBehaviour
                 }
             }
             Debug.Log($"PlayerPresenter: Player {PlayerId} health is {_currentHealth}");
-        }
-    }
-
-    private void ServerAuthoritySync()
-    {
-        _syncTimer += Time.deltaTime;
-
-        if (_syncTimer >= serverSyncRate)
-        {
-            _networkPosition.Value = transform.position;
-
-            UpdateAnimationClientRpc(IsMoving(), _isRunning, _isGrounded);
-
-            _syncTimer = 0f;
         }
     }
 
@@ -290,19 +263,17 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     }
 
-    public void OnPlayerHealthChanged(float newHealth)
+    private void HandleRemoteDeath()
     {
-        // Logica de presentacion: por ejemplo, actualizar la barra de salud del HUD.
-        // Debug.Log($"Presenter {PlayerId} health updated: {newHealth}");
-    }
+        Debug.Log($"PlayerPresenter: Player {PlayerId} has died.");
 
-    private void HandleDeath()
-    {
-        if (!IsOwner) return;
+        var input = GetComponent<PlayerInput>();
+        if (input != null) input.enabled = false;
 
-        SetHealth(0f);
+        _rb.simulated = false;
+        _collider.enabled = false;
 
-        Debug.Log($"PlayerPresenter: Player {PlayerId} triggered death logic, requesting damage from state.");
+        if (_animator != null) _animator.enabled = false;
     }
 
     /// <summary>
@@ -359,17 +330,6 @@ public sealed class PlayerPresenter : NetworkBehaviour
     }
 
     /// <summary>
-    /// Callback para clientes remotos (no dueños y no servidor) cuando la posicion de red cambia.
-    /// </summary>
-    private void OnNetworkPositionChanged(Vector3 previous, Vector3 current)
-    {
-        if (!IsOwner)
-        {
-            transform.position = current;
-        }
-    }
-
-    /// <summary>
     /// Applies exponential damage based on missing health.
     /// </summary>
     /// <param name="tickInterval">Time interval for damage calculation.</param>
@@ -392,7 +352,6 @@ public sealed class PlayerPresenter : NetworkBehaviour
         float newHealth = Mathf.Max(0f, _currentHealth - totalDamage);
         SetHealth(newHealth);
 
-        // Solo loguear cuando hay cambio significativo
         if (totalDamage > 0.1f)
         {
             Debug.Log($"[Server] Player {OwnerClientId} recibio {totalDamage:F2} de daño. Salud: {newHealth:F1}/{maxHealth}");
@@ -430,9 +389,19 @@ public sealed class PlayerPresenter : NetworkBehaviour
     private void SetHealth(float newHealth)
     {
         if (!IsServer) return;
+
+        bool wasAlive = _isAlive;
+
         _currentHealth = newHealth;
         _isAlive = _currentHealth > 0f;
         _networkHealth.Value = _currentHealth;
+        _networkIsAlive.Value = _isAlive;
+
+        if (wasAlive && !_isAlive)
+        {
+            Debug.Log($"Player {OwnerClientId} has died.");
+            OnDeath?.Invoke();
+        }
     }
 
     #endregion
@@ -515,7 +484,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
         }
 
         Debug.Log($"PlayerPresenter: Player {PlayerId} collided with lethal object.");
-        HandleDeath();
+        SetHealth(0f);
     }
 
     #endregion

@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &1192321027326326150
+--- !u!1 &3118533315397129477
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,71 +8,68 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 550697082293802054}
-  - component: {fileID: 8070080311677978805}
-  - component: {fileID: 7651683627134026195}
+  - component: {fileID: 5234341178296518542}
+  - component: {fileID: 3767931526721635827}
+  - component: {fileID: 8367067368170868298}
   m_Layer: 0
-  m_Name: RoundInterfaceManager
+  m_Name: RoundManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &550697082293802054
+--- !u!4 &5234341178296518542
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1192321027326326150}
+  m_GameObject: {fileID: 3118533315397129477}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1336.8145, y: 486.86325, z: 0}
+  m_LocalPosition: {x: 3.49128, y: 1.02209, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &8070080311677978805
+--- !u!114 &3767931526721635827
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1192321027326326150}
+  m_GameObject: {fileID: 3118533315397129477}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2638306131
+  GlobalObjectIdHash: 1477132195
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 1
+  SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
---- !u!114 &7651683627134026195
+--- !u!114 &8367067368170868298
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1192321027326326150}
+  m_GameObject: {fileID: 3118533315397129477}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bbfcda674ff94084f895d84cc78f415b, type: 3}
+  m_Script: {fileID: 11500000, guid: 9b6512d672bbf5342ae8d630604b7c58, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Application::RoundInterfaceManager
+  m_EditorClassIdentifier: Application::RoundManager
   ShowTopMostFoldoutHeaderGroup: 1
-  roundManagerPrefab: {fileID: 3118533315397129477, guid: e063b45b991dcfb409126722f8ca024d, type: 3}
-  playerListContent: {fileID: 0}
-  playerListEntryPrefab: {fileID: 0}
-  countdownText: {fileID: 0}
-  roundsText: {fileID: 0}
+  totalRounds: 5
+  countdownSeconds: 5
