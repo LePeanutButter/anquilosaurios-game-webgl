@@ -208,7 +208,7 @@ public class LobbySceneUI : MonoBehaviour
 
             if (NetworkManager.Singleton.SceneManager != null)
             {
-                NetworkManager.Singleton.SceneManager.LoadScene("RoundInterface", LoadSceneMode.Single);
+                SceneTransitionManager.Instance.LoadSceneWithTransition("RoundInterface");
             }
             else
             {

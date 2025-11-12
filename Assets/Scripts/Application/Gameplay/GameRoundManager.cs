@@ -14,7 +14,16 @@ using UnityEngine;
 /// </summary>
 public class GameRoundManager : NetworkBehaviour
 {
+    #region Public Fields
+
     public static GameRoundManager Instance { get; private set; }
+    public NetworkVariable<bool> isRoundInitialized = new(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    #endregion
 
     #region Inspector Fields
 
@@ -128,6 +137,10 @@ public class GameRoundManager : NetworkBehaviour
         {
             SpawnPlayer(client.ClientId);
         }
+
+        yield return new WaitForSeconds(1f);
+
+        isRoundInitialized.Value = true;
 
         yield return new WaitForSeconds(spawnStartDelaySeconds);
 
@@ -248,21 +261,6 @@ public class GameRoundManager : NetworkBehaviour
         };
     }
 
-    [ClientRpc]
-    private void SpawnPlayerHUDClientRpc(ulong networkObjectId, ClientRpcParams rpcParams = default)
-    {
-        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkObjectId, out NetworkObject netObj))
-            return;
-
-        if (netObj.IsOwner)
-        {
-            var hudInstance = Instantiate(playerHealthHudPrefab, healthHudParent);
-            var hudScript = hudInstance.GetComponent<HealthBarHUD>();
-
-            hudScript.Initialize(netObj.GetComponent<PlayerPresenter>());
-        }
-    }
-
 
     #endregion
 
@@ -308,6 +306,21 @@ public class GameRoundManager : NetworkBehaviour
     #endregion
 
     #region Network RPCs (Server Authority)
+
+    [ClientRpc]
+    private void SpawnPlayerHUDClientRpc(ulong networkObjectId, ClientRpcParams rpcParams = default)
+    {
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkObjectId, out NetworkObject netObj))
+            return;
+
+        if (netObj.IsOwner)
+        {
+            var hudInstance = Instantiate(playerHealthHudPrefab, healthHudParent);
+            var hudScript = hudInstance.GetComponent<HealthBarHUD>();
+
+            hudScript.Initialize(netObj.GetComponent<PlayerPresenter>());
+        }
+    }
 
     [ServerRpc(RequireOwnership = false)]
     private void StartRoundServerRpc()
@@ -500,10 +513,7 @@ public class GameRoundManager : NetworkBehaviour
 
             playerPresenters.Clear();
 
-            NetworkManager.Singleton.SceneManager.LoadScene(
-                "RoundInterface",
-                UnityEngine.SceneManagement.LoadSceneMode.Single
-            );
+            SceneTransitionManager.Instance.LoadSceneWithTransition("RoundInterface");
         }
     }
 

@@ -87,7 +87,7 @@ public class RoundManager : NetworkBehaviour
         UpdateCountdownClientRpc(0);
 
         if (SceneManager.GetActiveScene().name == "RoundInterface")
-            NetworkManager.Singleton.SceneManager.LoadScene("GameplayScene", LoadSceneMode.Single);
+            SceneTransitionManager.Instance.LoadSceneWithTransition("GameplayScene");
     }
 
     #endregion

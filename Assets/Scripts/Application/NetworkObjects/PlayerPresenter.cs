@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -150,6 +149,8 @@ public sealed class PlayerPresenter : NetworkBehaviour
         {
             _currentHealth = maxHealth;
             _isAlive = true;
+
+            ActivateImmunityServerRpc(2f);
         }
 
         if (IsOwner)
@@ -615,7 +616,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     /// </summary>
     private void SetImmune(bool value)
     {
-        if (!IsServer) return; // Solo el servidor puede cambiar inmunidad
+        if (!IsServer) return;
 
         if (_isImmune.Value == value) return;
 

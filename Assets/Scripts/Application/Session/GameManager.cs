@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Threading.Tasks;
 using TMPro;
 using Unity.Netcode;
@@ -45,7 +46,7 @@ public class GameManager : MonoBehaviour
         {
             Debug.Log("Session created successfully, starting host...");
 
-            NetworkManager.Singleton.SceneManager.LoadScene("LobbyScene", LoadSceneMode.Single);
+            SceneTransitionManager.Instance.LoadSceneWithTransition("LobbyScene");
         }
         else
         {
@@ -68,15 +69,21 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"Joining session with code: {code}...");
 
+        SceneTransitionManager.Instance.PlayLocalFadeOut();
+
         await SessionManager.Instance.JoinSessionByCodeAsync(code);
 
         if (SessionManager.Instance.ActiveSession != null)
         {
-            Debug.Log("Joined session successfully, starting client...");
-        }
+            Debug.Log("Joined session successfully, playing local transition...");
+
+            Debug.Log("Starting client...");
+            NetworkManager.Singleton.StartClient();
+        } 
         else
         {
             Debug.LogError("Failed to join session with the provided code.");
+            SceneTransitionManager.Instance.PlayLocalFadeIn();
         }
     }
 }
