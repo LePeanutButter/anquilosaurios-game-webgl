@@ -513,7 +513,16 @@ public class GameRoundManager : NetworkBehaviour
 
             playerPresenters.Clear();
 
-            SceneTransitionManager.Instance.LoadSceneWithTransition("RoundInterface");
+            RoundManager roundManager = FindFirstObjectByType<RoundManager>();
+
+            if (roundManager != null && roundManager.CurrentRound > 5)
+            {
+                SceneTransitionManager.Instance.LoadSceneWithTransition("WinnerScreen");
+            }
+            else
+            {
+                SceneTransitionManager.Instance.LoadSceneWithTransition("RoundInterface");
+            }
         }
     }
 

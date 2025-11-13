@@ -5,7 +5,6 @@ using UnityEngine.InputSystem;
 using System;
 using System.Collections;
 
-
 /// <summary>
 /// 2D player controller that moves the GameObject horizontally (X axis only).
 /// Uses Unity's Input System and Rigidbody2D for physics-based movement.
@@ -19,17 +18,22 @@ public sealed class PlayerPresenter : NetworkBehaviour
     [Header("Movement Settings")]
     [SerializeField, Tooltip("Base walking speed (units/sec)."), Range(0f, 50f)]
     private float walkSpeed = 8f;
+
     [SerializeField, Tooltip("Run speed multiplier."), Range(1f, 5f)]
     private float runSpeed = 1.8f;
-    [SerializeField, Tooltip("Velocidad vertical inicial del salto (unidades/seg).")]
+
+    [SerializeField, Tooltip("Initial vertical jump velocity (units/sec).")]
     private float jumpVelocity = 8.5f;
+
     [SerializeField, Tooltip("Enable Rigidbody2D interpolation for smooth movement.")]
     private bool useInterpolation = true;
 
     [Header("Ground Check")]
     [SerializeField, Tooltip("Layer mask used to detect what counts as ground.")]
     private LayerMask groundLayer = ~0;
+
     [SerializeField] private Transform groundCheckPoint;
+
     [SerializeField] private float groundCheckRadius = 0.1f;
 
     [Header("Health Settings")]
@@ -45,20 +49,13 @@ public sealed class PlayerPresenter : NetworkBehaviour
     private Animator _animator;
     private PlayerState _playerState;
     private Vector2 _moveInput;
+
     private bool _isRunning;
     private bool _isGrounded;
+    private bool _isClientMoving;
     private float _currentHealth;
     private float _lastMoveTime;
     private bool _isAlive = true;
-
-    private NetworkVariable<float> _networkHealth = new NetworkVariable<float>(
-        maxHealth,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
-    private NetworkVariable<bool> _networkIsAlive = new NetworkVariable<bool>(
-        true, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
-    );
 
     private static readonly int IsMovingParam = Animator.StringToHash("IsMoving");
     private static readonly int IsRunningParam = Animator.StringToHash("IsRunning");
@@ -66,24 +63,99 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     #endregion
 
-    #region Public Properties
+    #region Network Variables
 
+    private NetworkVariable<float> _networkHealth = new NetworkVariable<float>(
+        maxHealth,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    private NetworkVariable<bool> _networkIsAlive = new NetworkVariable<bool>(
+        true, 
+        NetworkVariableReadPermission.Everyone, 
+        NetworkVariableWritePermission.Server
+    );
+
+    private NetworkVariable<bool> _isImmune = new(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    private NetworkVariable<bool> netIsMoving = new(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Owner
+    );
+
+    private NetworkVariable<bool> netIsRunning = new(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Owner
+    );
+
+    private NetworkVariable<bool> netIsGrounded = new(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Owner
+    );
+
+
+    #endregion
+
+    #region Public Properties & Events
+
+    /// <summary>
+    /// Gets the current speed of the player. This is calculated based on whether the player is running or walking.
+    /// If the player is running, the speed will be `runSpeed`, otherwise, it will be `walkSpeed`.
+    /// </summary>
     public float CurrentSpeed => walkSpeed * (_isRunning ? runSpeed : 1f);
 
+    /// <summary>
+    /// Gets a boolean indicating whether the player is currently grounded. 
+    /// This is usually used to check if the player is standing on a solid surface.
+    /// </summary>
     public bool IsGrounded => _isGrounded;
 
+    /// <summary>
+    /// Gets the unique player ID. This will return the player's ID from the `_playerState` object if it exists, 
+    /// otherwise, it falls back to the `OwnerClientId` as the player identifier.
+    /// </summary>
     public ulong PlayerId => _playerState != null ? _playerState.PlayerId.Value : OwnerClientId;
 
+    /// <summary>
+    /// Gets the current health value of the player. This is typically updated over time as the player takes damage.
+    /// The value is fetched from a networked health value, so it might be synchronized with a server.
+    /// </summary>
     public float CurrentHealth => _networkHealth.Value;
 
+    /// <summary>
+    /// Gets the maximum health value of the player. This is typically set when the player is created or spawned.
+    /// </summary>
     public float MaxHealth => maxHealth;
+
+    /// <summary>
+    /// Gets a boolean indicating whether the player is currently alive. 
+    /// This is typically used to check if the player has died or if they are still active in the game.
+    /// </summary>
     public bool IsAlive => _isAlive;
 
+    /// <summary>
+    /// Returns whether the player is currently immune.
+    /// </summary>
+    /// <returns>True if the player is immune, false otherwise.</returns>
+    public bool IsImmune() => _isImmune.Value;
+
+    /// <summary>
+    /// Event triggered when the player dies. This could be used to trigger UI updates, animations, or other game mechanics 
+    /// related to the player’s death (e.g., game over screen, respawn, etc.).
+    /// </summary>
     public event Action OnDeath;
 
     #endregion
 
-    #region Initialization & Network Spawn
+    #region Initialization & Network Lifecycle
 
     /// <summary>
     /// Unity callback invoked when the script instance is being loaded.
@@ -127,17 +199,25 @@ public sealed class PlayerPresenter : NetworkBehaviour
             : RigidbodyInterpolation2D.None;
     }
 
+    /// <summary>
+    /// Initializes the player presenter with the given PlayerState.
+    /// </summary>
+    /// <param name="state">The PlayerState associated with this player.</param>
     public void InitializePresenter(PlayerState state)
     {
         if (state == null)
         {
-            Debug.LogError("El PlayerState proporcionado es nulo.");
+            Debug.LogError("Provided PlayerState is null.");
             return;
         }
         _playerState = state;
-        Debug.Log($"PlayerPresenter: Asignado PlayerState con ClientId: {state.OwnerClientId}");
+        Debug.Log($"PlayerPresenter: Assigned PlayerState with ClientId: {state.OwnerClientId}");
     }
 
+    /// <summary>
+    /// Unity callback invoked when the object is spawned over the network.
+    /// Registers network variables and handles the initial setup for the local player.
+    /// </summary>
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
@@ -155,17 +235,15 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
         if (IsOwner)
         {
-            Debug.Log("PlayerPresenter: Soy el dueño de este avatar! (Control Local)");
+            Debug.Log("PlayerPresenter: I am the owner of this avatar! (Local Control)");
             if (playerInput != null)
             {
                 playerInput.enabled = true;
             }
-
-            EnableLocalControl();
         }
         else
         {
-            Debug.Log("PlayerPresenter: Soy un cliente remoto. (Sincronizacion remota)");
+            Debug.Log("PlayerPresenter: I am a remote client. (Remote Synchronization)");
             if (playerInput != null)
             {
                 playerInput.enabled = false;
@@ -173,6 +251,12 @@ public sealed class PlayerPresenter : NetworkBehaviour
         }
     }
 
+    /// <summary>
+    /// Callback invoked when the player's alive status changes.
+    /// Handles death events for remote players.
+    /// </summary>
+    /// <param name="previousValue">The previous alive status of the player.</param>
+    /// <param name="newValue">The new alive status of the player.</param>
     private void OnIsAliveChanged(bool previousValue, bool newValue)
     {
         if (!newValue)
@@ -181,16 +265,13 @@ public sealed class PlayerPresenter : NetworkBehaviour
         }
     }
 
+    /// <summary>
+    /// Called when the networked player object is despawned from the network.
+    /// This callback is invoked when the object is removed from the network session.
+    /// </summary>
     public override void OnNetworkDespawn()
     {
         base.OnNetworkDespawn();
-    }
-
-    private void EnableLocalControl()
-    {
-        // Esto deberia habilitar el manejo de input para el dueño local
-        // Asegurate de que los callbacks de Input (OnMove, OnRun, OnJump) solo se ejecuten si IsOwner es true.
-        // Los metodos de input ya tienen la comprobacion !IsOwner return;
     }
 
     #endregion
@@ -198,8 +279,8 @@ public sealed class PlayerPresenter : NetworkBehaviour
     #region Unity Callbacks
 
     /// <summary>
-    /// Unity callback invoked at a fixed time interval, used for physics updates.
-    /// Applies horizontal movement to the Rigidbody2D based on input and current speed.
+    /// Unity callback invoked at fixed time intervals (Physics Updates).
+    /// Moves the player based on input and current speed, and synchronizes movement with the server.
     /// </summary>
     private void FixedUpdate()
     {
@@ -213,6 +294,10 @@ public sealed class PlayerPresenter : NetworkBehaviour
             float targetSpeed = horizontal * CurrentSpeed;
             _rb.linearVelocity = new Vector2(targetSpeed, _rb.linearVelocity.y);
 
+            netIsMoving.Value = IsMoving();
+            netIsRunning.Value = _isRunning;
+            netIsGrounded.Value = _isGrounded;
+
             if (!IsServer)
             {
                 UpdateMovementStateServerRpc(IsMoving(), _isRunning, _isGrounded);
@@ -223,7 +308,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
         {
             float tickInterval = Time.fixedDeltaTime;
 
-            bool moving = IsMoving();
+            bool moving = IsOwner ? IsMoving() : _isClientMoving;
 
             if (moving)
             {
@@ -238,10 +323,13 @@ public sealed class PlayerPresenter : NetworkBehaviour
                     ApplyExponentialDamageServerRpc(tickInterval);
                 }
             }
-            Debug.Log($"PlayerPresenter: Player {PlayerId} health is {_currentHealth}");
         }
     }
 
+    /// <summary>
+    /// Unity callback invoked every frame to update animations and movement.
+    /// Also, adjusts the facing direction of the player based on input.
+    /// </summary>
     private void Update()
     {
         ApplyAnimations();
@@ -250,43 +338,6 @@ public sealed class PlayerPresenter : NetworkBehaviour
             SetFacingDirection(_moveInput);
         }
     }
-
-    /// <summary>
-    /// Handler when the player's health or state change causes death.
-    /// </summary>
-    public void OnPlayerDiedStateChanged()
-    {
-        if (!IsOwner) return;
-
-        enabled = false;
-
-        Debug.Log($"PlayerPresenter: Player {PlayerId} received death notification from state.");
-
-    }
-
-    private void HandleRemoteDeath()
-    {
-        Debug.Log($"PlayerPresenter: Player {PlayerId} has died.");
-
-        var input = GetComponent<PlayerInput>();
-        if (input != null) input.enabled = false;
-
-        _rb.simulated = false;
-        _collider.enabled = false;
-
-        if (_animator != null) _animator.enabled = false;
-    }
-
-    /// <summary>
-    /// Returns true if the player is effectively idle.
-    /// </summary>
-    public bool IsMoving(float velocityThreshold = 0.05f)
-    {
-        if (_rb == null) return true;
-
-        return Mathf.Abs(_rb.linearVelocity.x) > velocityThreshold;
-    }
-
 
 #if UNITY_EDITOR
 
@@ -304,89 +355,43 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     #endregion
 
-    #region Network RPCs (Server Authority)
+    #region Health & Death Handling
 
     /// <summary>
-    /// Owner -> Server: Envia la intencion de movimiento y el estado actual.
+    /// Called when the player dies. Handles logic when death state is received.
     /// </summary>
-    [ServerRpc]
-    private void UpdateMovementStateServerRpc(bool isMoving, bool isRunning, bool isGrounded)
+    public void OnPlayerDiedStateChanged()
     {
-        _isRunning = isRunning;
-        _isGrounded = isGrounded;
-    }
+        if (!IsOwner) return;
 
-    /// <summary>
-    /// Server -> Everyone: Sincroniza el estado de animacion para que se visualice correctamente.
-    /// Esto es mas eficiente que sincronizar 3 NetworkVariables.
-    /// </summary>
-    [ClientRpc]
-    private void UpdateAnimationClientRpc(bool isMoving, bool isRunning, bool isGrounded)
-    {
-        if (IsOwner) return;
+        enabled = false;
 
-        _isGrounded = isGrounded;
-        _isRunning = isRunning;
+        Debug.Log($"PlayerPresenter: Player {PlayerId} received death notification from state.");
 
     }
 
     /// <summary>
-    /// Applies exponential damage based on missing health.
+    /// Handles the death of a remote player by disabling movement and animations.
+    /// This method is called for remote players when they die.
     /// </summary>
-    /// <param name="tickInterval">Time interval for damage calculation.</param>
-    [ServerRpc(RequireOwnership = false)]
-    public void ApplyExponentialDamageServerRpc(float tickInterval)
+    private void HandleRemoteDeath()
     {
-        if (!IsServer || !_isAlive) return;
+        Debug.Log($"PlayerPresenter: Player {PlayerId} has died.");
 
-        if (IsImmune())
-        {
-            Debug.Log($"[Server] Player {OwnerClientId} es inmune, no se aplica daño.");
-            return;
-        }
+        var input = GetComponent<PlayerInput>();
+        if (input != null) input.enabled = false;
 
-        float baseDamage = 5f * tickInterval;
-        float missingHealth = Mathf.Max(0f, maxHealth - _currentHealth);
-        float scalingDamage = Mathf.Pow(missingHealth, 1.2f) * tickInterval;
-        float totalDamage = baseDamage + scalingDamage;
+        _rb.simulated = false;
+        _collider.enabled = false;
 
-        float newHealth = Mathf.Max(0f, _currentHealth - totalDamage);
-        SetHealth(newHealth);
-
-        if (totalDamage > 0.1f)
-        {
-            Debug.Log($"[Server] Player {OwnerClientId} recibio {totalDamage:F2} de daño. Salud: {newHealth:F1}/{maxHealth}");
-        }
+        if (_animator != null) _animator.enabled = false;
     }
 
     /// <summary>
-    /// Applies linear health recovery over time.
+    /// Updates the player's health and alive status, and triggers the death event if the player dies.
+    /// This method is called whenever the player's health is modified.
     /// </summary>
-    /// <param name="tickInterval">Time interval for recovery calculation.</param>
-    [ServerRpc(RequireOwnership = false)]
-    public void ApplyLinearRecoveryServerRpc(float tickInterval)
-    {
-        if (!IsServer || !_isAlive) return;
-
-        float recoveryAmount = maxHealth * 0.1f * tickInterval;
-        float newHealth = Mathf.Min(maxHealth, _currentHealth + recoveryAmount);
-        SetHealth(newHealth);
-    }
-
-    /// <summary>
-    /// Resets the player's health to maximum.
-    /// </summary>
-    [ServerRpc(RequireOwnership = false)]
-    public void ResetHealthServerRpc()
-    {
-        if (!IsServer) return;
-        SetHealth(maxHealth);
-    }
-
-    /// <summary>
-    /// Updates health and alive status.
-    /// </summary>
-    /// <param name="newHealth">New health value.</param>
+    /// <param name="newHealth">The new health value to set for the player.</param>
     private void SetHealth(float newHealth)
     {
         if (!IsServer) return;
@@ -407,35 +412,133 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     #endregion
 
+    #region Network RPCs (Server Authority)
+
+    /// <summary>
+    /// Sends movement intent and current state.
+    /// This RPC is called by the owner (local player) to update movement state on the server.
+    /// </summary>
+    [ServerRpc]
+    private void UpdateMovementStateServerRpc(bool isMoving, bool isRunning, bool isGrounded)
+    {
+        _isRunning = isRunning;
+        _isGrounded = isGrounded;
+        _isClientMoving = isMoving;
+    }
+
+    /// <summary>
+    /// Applies exponential damage based on missing health.
+    /// The damage increases as the player's health decreases, with a higher damage scaling for larger health deficits.
+    /// </summary>
+    /// <param name="tickInterval">Time interval for damage calculation. This is typically the fixed time between physics updates.</param>
+    [ServerRpc(RequireOwnership = false)]
+    public void ApplyExponentialDamageServerRpc(float tickInterval)
+    {
+        if (!IsServer || !_isAlive) return;
+
+        if (IsImmune())
+        {
+            Debug.Log($"[Server] Player {OwnerClientId} is immune, no damage applied.");
+            return;
+        }
+
+        float baseDamage = 5f * tickInterval;
+        float missingHealth = Mathf.Max(0f, maxHealth - _currentHealth);
+        float scalingDamage = Mathf.Pow(missingHealth, 1.2f) * tickInterval;
+        float totalDamage = baseDamage + scalingDamage;
+
+        float newHealth = Mathf.Max(0f, _currentHealth - totalDamage);
+        SetHealth(newHealth);
+
+        if (totalDamage > 0.1f)
+        {
+            Debug.Log($"[Server] Player {OwnerClientId} received {totalDamage:F2} damage. Health: {newHealth:F1}/{maxHealth}");
+        }
+    }
+
+    /// <summary>
+    /// Applies linear health recovery over time. The recovery is a fixed percentage of the player's maximum health.
+    /// </summary>
+    /// <param name="tickInterval">Time interval for recovery calculation. This is typically the fixed time between physics updates.</param>
+    [ServerRpc(RequireOwnership = false)]
+    public void ApplyLinearRecoveryServerRpc(float tickInterval)
+    {
+        if (!IsServer || !_isAlive) return;
+
+        float recoveryAmount = maxHealth * 0.1f * tickInterval;
+        float newHealth = Mathf.Min(maxHealth, _currentHealth + recoveryAmount);
+        SetHealth(newHealth);
+    }
+
+    /// <summary>
+    /// Resets the player's health to the maximum value.
+    /// This method is typically called after the player respawns or when health needs to be fully restored.
+    /// </summary>
+    [ServerRpc(RequireOwnership = false)]
+    public void ResetHealthServerRpc()
+    {
+        if (!IsServer) return;
+        SetHealth(maxHealth);
+    }
+
+    /// <summary>
+    /// Activates temporary immunity for the player during the specified duration.
+    /// </summary>
+    /// <param name="duration">Duration in seconds for which the player is immune.</param>
+    [ServerRpc(RequireOwnership = false)]
+    public void ActivateImmunityServerRpc(float duration)
+    {
+        if (!IsServer) return;
+        if (!gameObject.activeInHierarchy) return;
+
+        StartCoroutine(ImmunityRoutine(duration));
+    }
+
+    /// <summary>
+    /// Handles the logic when the player collides with a lethal object.
+    /// Attempts to invoke a "Kill" method on the domain controller, or sets health to 0.
+    /// Updates the health bar HUD and triggers death handling.
+    /// </summary>
+    /// <param name="lethalObject">The lethal GameObject that caused the collision.</param>
+    [ServerRpc(RequireOwnership = false)]
+    private void HandleLethalCollisionServerRpc(ulong playerId)
+    {
+        if (!_isAlive || IsImmune()) return;
+
+        Debug.Log($"[Server] Applying lethal damage to Player {playerId}");
+        SetHealth(0f);
+    }
+
+    #endregion
+
     #region Animation
 
 
     /// <summary>
-    /// Updates the Animator component parameters based on SYNCHRONIZED player state.
-    /// This runs on all clients.
+    /// Updates the Animator component parameters based on synchronized player state.
+    /// This method runs on all clients, updating the player's animation state (e.g., running, grounded, moving).
     /// </summary>
     private void ApplyAnimations()
     {
         if (_animator == null) return;
 
-        if (IsOwner || IsServer)
-        {
-            _animator.SetBool(IsMovingParam, IsMoving());
-            _animator.SetBool(IsRunningParam, _isRunning);
-            _animator.SetBool(IsGroundedParam, _isGrounded);
-        }
-        else
-        {
-            _animator.SetBool(IsMovingParam, _moveInput.x != 0);
-            _animator.SetBool(IsRunningParam, _isRunning);
-            _animator.SetBool(IsGroundedParam, _isGrounded);
-        }
+        bool moving = netIsMoving.Value;
+        bool running = netIsRunning.Value;
+        bool grounded = netIsGrounded.Value;
+
+        _animator.SetBool(IsMovingParam, moving);
+        _animator.SetBool(IsRunningParam, running);
+        _animator.SetBool(IsGroundedParam, grounded);
     }
 
     #endregion
 
     #region Collision Detection
 
+    /// <summary>
+    /// Checks if the player is grounded by performing a circle overlap check at the ground check point.
+    /// The check looks for colliders that belong to the "ground" layer or other relevant layers.
+    /// </summary>
     private void CheckGrounded()
     {
         _isGrounded = false;
@@ -457,40 +560,25 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     /// <summary>
     /// Unity callback invoked when another collider enters this GameObject's trigger collider.
-    /// If the other object is on the "Lethal" layer, triggers the lethal collision handler.
+    /// If the other object is on the "Lethal" layer, it triggers the lethal collision handler.
     /// </summary>
     /// <param name="other">The collider that entered the trigger.</param>
     private void OnTriggerEnter2D(Collider2D other)
     {
+        if (!IsServer) return;
+
         if (other.gameObject.layer == LayerMask.NameToLayer("Lethal"))
         {
-            HandleLethalCollision(other.gameObject);
+            ulong playerId = OwnerClientId;
+            Debug.Log($"[Server] Player {playerId} collided with lethal object {other.gameObject.name}");
+
+            HandleLethalCollisionServerRpc(playerId);
         }
-    }
-
-    /// <summary>
-    /// Handles the logic when the player collides with a lethal object.
-    /// Attempts to invoke a "Kill" method on the domain controller, or sets health to 0.
-    /// Updates the health bar HUD and triggers death handling.
-    /// </summary>
-    /// <param name="lethalObject">The lethal GameObject that caused the collision.</param>
-    private void HandleLethalCollision(GameObject lethalObject)
-    {
-        if (!IsOwner) return;
-
-        if (IsImmune())
-        {
-            Debug.Log($"PlayerPresenter: Player {PlayerId} es inmune, ignorando colision letal.");
-            return;
-        }
-
-        Debug.Log($"PlayerPresenter: Player {PlayerId} collided with lethal object.");
-        SetHealth(0f);
     }
 
     #endregion
 
-    #region Input Callbacks
+    #region Input System Callbacks
 
     /// <summary>
     /// Input System callback for movement. Accepts a Vector2 action but uses only X (left/right).
@@ -514,7 +602,7 @@ public sealed class PlayerPresenter : NetworkBehaviour
     }
 
     /// <summary>
-    /// Input System callback for jump. Triggered when jump button is pressed.
+    /// Input System callback for jump. Triggered when the jump button is pressed.
     /// </summary>
     /// <param name="context">Input action context.</param>
     public void OnJump(InputAction.CallbackContext context)
@@ -526,12 +614,14 @@ public sealed class PlayerPresenter : NetworkBehaviour
             float horizontalVelocity = _rb.linearVelocity.x;
             _rb.linearVelocity = new Vector2(horizontalVelocity, jumpVelocity);
             _isGrounded = false;
+
+            AudioManager.Instance.PlaySFXNetworked(AudioManager.Instance.jump);
         }
     }
 
     /// <summary>
     /// Updates the player's facing direction based on horizontal input.
-    /// Flips the local scale on X axis only when direction changes.
+    /// Flips the local scale on the X-axis only when direction changes.
     /// </summary>
     /// <param name="input">Movement input vector.</param>
     private void SetFacingDirection(Vector2 input)
@@ -552,6 +642,18 @@ public sealed class PlayerPresenter : NetworkBehaviour
         }
     }
 
+    /// <summary>
+    /// Returns true if the player is effectively moving (i.e., moving horizontally).
+    /// This method checks the player's horizontal velocity against a threshold to determine if they are moving.
+    /// </summary>
+    /// <param name="velocityThreshold">The velocity threshold for considering the player as moving. Default is 0.05f.</param>
+    /// <returns>True if the player is moving horizontally, otherwise false.</returns>
+    public bool IsMoving(float velocityThreshold = 0.05f)
+    {
+        if (_rb == null) return true;
+
+        return Mathf.Abs(_rb.linearVelocity.x) > velocityThreshold;
+    }
 
     #endregion
 
@@ -577,29 +679,12 @@ public sealed class PlayerPresenter : NetworkBehaviour
 
     #endregion
 
-    #region QTE Event
-
-
-    private NetworkVariable<bool> _isImmune = new(
-        false,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server);
+    #region Immunity (QTE Event)
 
     /// <summary>
-    /// Activa inmunidad temporal durante la duracion indicada.
+    /// Coroutine that manages the player's immunity state and triggers events.
     /// </summary>
-    [ServerRpc(RequireOwnership = false)]
-    public void ActivateImmunityServerRpc(float duration)
-    {
-        if (!IsServer) return;
-        if (!gameObject.activeInHierarchy) return;
-
-        StartCoroutine(ImmunityRoutine(duration));
-    }
-
-    /// <summary>
-    /// Corrutina que maneja el estado de inmunidad y dispara el evento.
-    /// </summary>
+    /// <param name="duration">Duration of immunity in seconds.</param>
     private IEnumerator ImmunityRoutine(float duration)
     {
         SetImmune(true);
@@ -612,8 +697,9 @@ public sealed class PlayerPresenter : NetworkBehaviour
     }
 
     /// <summary>
-    /// Setter que actualiza el estado de inmunidad y dispara el evento.
+    /// Setter to update the player's immunity status and trigger the event.
     /// </summary>
+    /// <param name="value">True to activate immunity, false to deactivate.</param>
     private void SetImmune(bool value)
     {
         if (!IsServer) return;
@@ -621,15 +707,8 @@ public sealed class PlayerPresenter : NetworkBehaviour
         if (_isImmune.Value == value) return;
 
         _isImmune.Value = value;
-        Debug.Log($"[PlayerPresenter {OwnerClientId}] Inmunidad cambiada a: {value}");
+        Debug.Log($"[PlayerPresenter {OwnerClientId}] Immunity changed to: {value}");
     }
 
-    /// <summary>
-    /// Retorna si el jugador esta inmune.
-    /// </summary>
-    public bool IsImmune() => _isImmune.Value;
-
-
     #endregion
-
 }

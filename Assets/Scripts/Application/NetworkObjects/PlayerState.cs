@@ -4,31 +4,41 @@ using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
-/// Network adapter that synchronizes id, name and character between network and domain.
-/// In a host-authoritative session the server stores the Player domain model in PlayerServiceMono (in-memory).
-/// Clients read NetworkVariables and request changes via ServerRpc.
+/// Network adapter that synchronizes id, name, character, death count, and round wins between the network and the domain.
+/// In a host-authoritative session, the server stores the Player domain model in PlayerServiceMono (in-memory).
+/// Clients read NetworkVariables and request changes via ServerRpc methods.
 /// </summary>
 public class PlayerState : NetworkBehaviour
 {
+    #region Serializable Fields
+
     [Header("Presentation")]
-    [Tooltip("Lista de GameObjects Prefabs de avatar, mapeados por CharacterType.")]
+    [Tooltip("List of GameObject prefabs for each CharacterType.")]
     [SerializeField]
     private CharacterPrefabEntry[] characterPrefabs;
+
+    #endregion
+
+    #region Private Fields
+
     private Dictionary<CharacterType, GameObject> _prefabMap;
-
-    [System.Serializable]
-    public struct CharacterPrefabEntry
-    {
-        public CharacterType characterType;
-        public GameObject prefab;
-    }
-
     private PlayerPresenter _activePresenter;
 
-    public PlayerPresenter ActivePresenter => _activePresenter;
+    #endregion
+
+    #region Public Properties
 
     /// <summary>
-    /// Unique identifier for the player.
+    /// Currently active presenter for this player (avatar representation).
+    /// </summary>
+    public PlayerPresenter ActivePresenter => _activePresenter;
+
+    #endregion
+
+    #region Network Variables
+
+    /// <summary>
+    /// NetworkVariable representing the unique player ID.
     /// </summary>
     public readonly NetworkVariable<ulong> PlayerId =
         new NetworkVariable<ulong>(
@@ -37,7 +47,7 @@ public class PlayerState : NetworkBehaviour
             NetworkVariableWritePermission.Server);
 
     /// <summary>
-    /// Display name of the player.
+    /// NetworkVariable representing the player's display name.
     /// </summary>
     public readonly NetworkVariable<FixedString64Bytes> PlayerName =
         new NetworkVariable<FixedString64Bytes>(
@@ -46,7 +56,7 @@ public class PlayerState : NetworkBehaviour
             NetworkVariableWritePermission.Server);
 
     /// <summary>
-    /// Selected character type represented as an integer.
+    /// NetworkVariable representing the selected character as an integer.
     /// </summary>
     public readonly NetworkVariable<int> Character =
         new NetworkVariable<int>(
@@ -55,7 +65,7 @@ public class PlayerState : NetworkBehaviour
             NetworkVariableWritePermission.Server);
 
     /// <summary>
-    /// Number of times the player has died.
+    /// NetworkVariable representing the number of times the player has died.
     /// </summary>
     public readonly NetworkVariable<int> DeathCount =
     new NetworkVariable<int>(
@@ -64,7 +74,7 @@ public class PlayerState : NetworkBehaviour
         NetworkVariableWritePermission.Server);
 
     /// <summary>
-    /// Number of rounds the player has won.
+    /// NetworkVariable representing the number of rounds the player has won.
     /// </summary>
     public readonly NetworkVariable<int> RoundWins =
         new NetworkVariable<int>(
@@ -72,6 +82,27 @@ public class PlayerState : NetworkBehaviour
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
 
+    #endregion
+
+    #region Serializable Structs
+
+    /// <summary>
+    /// Serializable mapping of CharacterType to prefab GameObject.
+    /// </summary>
+    [System.Serializable]
+    public struct CharacterPrefabEntry
+    {
+        public CharacterType characterType;
+        public GameObject prefab;
+    }
+
+    #endregion
+
+    #region Unity Callbacks
+
+    /// <summary>
+    /// Initializes the prefab dictionary from the serialized array.
+    /// </summary>
     private void Awake()
     {
         _prefabMap = new Dictionary<CharacterType, GameObject>();
@@ -86,7 +117,7 @@ public class PlayerState : NetworkBehaviour
 
     /// <summary>
     /// Called when the object is spawned on the network.
-    /// Subscribes to health and alive status change events.
+    /// Subscribes to network variable change events and initializes PlayerId on the server.
     /// </summary>
     public override void OnNetworkSpawn()
     {
@@ -104,7 +135,7 @@ public class PlayerState : NetworkBehaviour
 
     /// <summary>
     /// Called when the object is despawned from the network.
-    /// Unsubscribes from health and alive status change events.
+    /// Unsubscribes from network variable change events and cleans up the active presenter.
     /// </summary>
     public override void OnNetworkDespawn()
     {
@@ -118,12 +149,15 @@ public class PlayerState : NetworkBehaviour
         }
     }
 
+    #endregion
+
+    #region Server Methods
+
     /// <summary>
-    /// Initializes player data on the server.
+    /// Initializes the player's data on the server.
     /// </summary>
-    /// <param name="name">Player name.</param>
-    /// <param name="characterType">Character type as integer.</param>
-    /// <param name="maxHealth">Maximum health value.</param>
+    /// <param name="name">The player's display name.</param>
+    /// <param name="characterType">The selected character type as integer.</param>
     public void InitializeDataServer(string name, int characterType)
     { 
         if (!IsServer) return;
@@ -138,7 +172,7 @@ public class PlayerState : NetworkBehaviour
     }
 
     /// <summary>
-    /// Increments the player's round win count.
+    /// Increments the player's round win count on the server.
     /// </summary>
     [ServerRpc(RequireOwnership = false)]
     public void AddRoundWinServerRpc()
@@ -149,7 +183,7 @@ public class PlayerState : NetworkBehaviour
     }
 
     /// <summary>
-    /// Increments the player's death count.
+    /// Increments the player's death count on the server.
     /// </summary>
     [ServerRpc(RequireOwnership = false)]
     public void AddDeathServerRpc()
@@ -159,17 +193,26 @@ public class PlayerState : NetworkBehaviour
         Debug.Log($"[{PlayerName.Value}] DeathCount incremented to {DeathCount.Value}");
     }
 
-    #region Network Variable Handlers
+    #endregion
 
+    #region NetworkVariable Callbacks
+
+    /// <summary>
+    /// Handler for when the player's character selection changes.
+    /// </summary>
+    /// <param name="previous">Previous character type value.</param>
+    /// <param name="current">Current character type value.</param>
     private void OnCharacterSelected(int previous, int current)
     {
-        Debug.Log($"[{PlayerName.Value}] Character seleccionado: {(CharacterType)previous} -> {(CharacterType)current}");
+        Debug.Log($"[{PlayerName.Value}] Character selected: {(CharacterType)previous} -> {(CharacterType)current}");
     }
 
     #endregion
 
+    #region Helpers / Debug
+
     /// <summary>
-    /// Displays all the current values of the player's NetworkVariables in the console.
+    /// Prints all current network variable values to the console for debugging purposes.
     /// </summary>
     [ContextMenu("Debug Network State")]
     public void DebugNetworkState()
@@ -183,4 +226,6 @@ public class PlayerState : NetworkBehaviour
 
         Debug.Log(state);
     }
+
+    #endregion
 }
