@@ -97,3 +97,10 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Node.js and environment configuration
+.env
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -3,20 +3,36 @@ using System.Collections.Generic;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
+/// <summary>
+/// Handles the UI of the Lobby scene, including session code display, player list management,
+/// and starting the game for the host.
+/// </summary>
 public class LobbySceneUI : MonoBehaviour
 {
+    #region Public Fields
+
     [Header("UI References")]
     public TMP_Text sessionCodeText;
     public Button startGameButton;
     public Transform playerListParent;
     public GameObject playerCardPrefab;
 
+    #endregion
+
+    #region Private Fields
+
     private readonly Dictionary<ulong, PlayerCardUI> playerCards = new();
     private readonly Dictionary<ulong, PlayerState> boundPlayerStates = new();
 
+    #endregion
+
+    #region Unity Callbacks
+
+    /// <summary>
+    /// Initializes the lobby UI and registers network events.
+    /// </summary>
     private void Start()
     {
         SetupLobby();
@@ -28,6 +44,9 @@ public class LobbySceneUI : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Cleans up network event listeners and unbinds all player states when the object is destroyed.
+    /// </summary>
     private void OnDestroy()
     {
         if (NetworkManager.Singleton != null)
@@ -43,12 +62,19 @@ public class LobbySceneUI : MonoBehaviour
         boundPlayerStates.Clear();
     }
 
+    #endregion
+
+    #region Lobby UI Setup
+
+    /// <summary>
+    /// Sets up the lobby UI, including session code, start game button visibility, and player list.
+    /// </summary>
     private void SetupLobby()
     {
         if (SessionManager.Instance?.ActiveSession != null)
-            sessionCodeText.text = $"Código de sesión: {SessionManager.Instance.ActiveSession.Code}";
+            sessionCodeText.text = $"Codigo de sesion: {SessionManager.Instance.ActiveSession.Code}";
         else
-            sessionCodeText.text = "Código de sesión no disponible";
+            sessionCodeText.text = "Codigo de sesion no disponible";
 
         bool isHost = NetworkManager.Singleton != null && NetworkManager.Singleton.IsHost;
         startGameButton.gameObject.SetActive(isHost);
@@ -58,6 +84,13 @@ public class LobbySceneUI : MonoBehaviour
         RefreshPlayerList();
     }
 
+    #endregion
+
+    #region Player List Management
+
+    /// <summary>
+    /// Clears and rebuilds the player list UI based on currently connected clients.
+    /// </summary>
     private void RefreshPlayerList()
     {
         if (NetworkManager.Singleton == null) return;
@@ -80,7 +113,7 @@ public class LobbySceneUI : MonoBehaviour
 
             if (playerObject == null)
             {
-                Debug.LogWarning($"El PlayerObject del cliente {clientId} aún no está listo, se mostrará placeholder.");
+                Debug.LogWarning($"Client {clientId}'s PlayerObject not ready, showing placeholder.");
                 CreatePlayerCardPlaceholder(clientId);
                 continue;
             }
@@ -88,7 +121,7 @@ public class LobbySceneUI : MonoBehaviour
             var playerState = playerObject.GetComponent<PlayerState>();
             if (playerState == null)
             {
-                Debug.LogWarning($"No se encontró PlayerState en el cliente {clientId}");
+                Debug.LogWarning($"PlayerState not found for client {clientId}");
                 CreatePlayerCardPlaceholder(clientId);
                 continue;
             }
@@ -97,6 +130,10 @@ public class LobbySceneUI : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Creates a placeholder player card for clients whose PlayerState is not yet ready.
+    /// </summary>
+    /// <param name="clientId">The client ID for which to create the placeholder.</param>
     private void CreatePlayerCardPlaceholder(ulong clientId)
     {
         var cardGO = Instantiate(playerCardPrefab, playerListParent);
@@ -107,6 +144,11 @@ public class LobbySceneUI : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Creates a player card UI for a client and binds it to the corresponding PlayerState.
+    /// </summary>
+    /// <param name="clientId">The client ID of the player.</param>
+    /// <param name="playerState">The PlayerState object to bind.</param>
     private void CreateAndBindCard(ulong clientId, PlayerState playerState)
     {
         var cardGO = Instantiate(playerCardPrefab, playerListParent);
@@ -148,6 +190,11 @@ public class LobbySceneUI : MonoBehaviour
         boundPlayerStates[clientId] = playerState;
     }
 
+    /// <summary>
+    /// Unbinds the player state from its UI listeners.
+    /// </summary>
+    /// <param name="clientId">The client ID of the player to unbind.</param>
+    /// <param name="playerState">The PlayerState to unbind.</param>
     private void UnbindPlayerState(ulong clientId, PlayerState playerState)
     {
         if (playerState == null) return;
@@ -159,19 +206,32 @@ public class LobbySceneUI : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogWarning($"Error al desuscribir PlayerState para client {clientId}: {e.Message}");
+            Debug.LogWarning($"Error unsubscribing PlayerState for client {clientId}: {e.Message}");
         }
     }
 
+    #endregion
+
+    #region Network Event Handlers
+
+    /// <summary>
+    /// Callback invoked when a client connects to the session.
+    /// </summary>
+    /// <param name="clientId">The client ID that connected.</param>
     private void OnClientConnected(ulong clientId)
     {
-        Debug.Log($"Cliente conectado: {clientId}");
+        Debug.Log($"Client connected: {clientId}");
         StartCoroutine(DelayedRefresh());
     }
 
+    /// <summary>
+    /// Callback invoked when a client disconnects from the session.
+    /// Removes their UI card and unbinds their state.
+    /// </summary>
+    /// <param name="clientId">The client ID that disconnected.</param>
     private void OnClientDisconnected(ulong clientId)
     {
-        Debug.Log($"Cliente desconectado: {clientId}");
+        Debug.Log($"Client disconnected: {clientId}");
 
         if (playerCards.TryGetValue(clientId, out var card))
         {
@@ -188,32 +248,46 @@ public class LobbySceneUI : MonoBehaviour
         RefreshPlayerList();
     }
 
+    /// <summary>
+    /// Waits a single frame before refreshing the player list to ensure network objects are initialized.
+    /// </summary>
+    /// <returns>Enumerator for coroutine.</returns>
     private System.Collections.IEnumerator DelayedRefresh()
     {
         yield return null;
         RefreshPlayerList();
     }
 
+    #endregion
+
+    #region Game Start Logic
+
+    /// <summary>
+    /// Starts the game if the local player is the host.
+    /// Loads the "RoundInterface" scene through the SceneTransitionManager.
+    /// </summary>
     private void OnStartGameClicked()
     {
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsHost)
         {
-            Debug.Log("El host ha iniciado la partida.");
+            Debug.Log("Host has started the game.");
 
             if (SessionManager.Instance?.ActiveSession == null)
             {
-                Debug.LogError("No hay sesión activa para cambiar de escena.");
+                Debug.LogError("No active session to switch scenes.");
                 return;
             }
 
             if (NetworkManager.Singleton.SceneManager != null)
             {
-                NetworkManager.Singleton.SceneManager.LoadScene("RoundInterface", LoadSceneMode.Single);
+                SceneTransitionManager.Instance.LoadSceneWithTransition("RoundInterface");
             }
             else
             {
-                Debug.LogError("No se encontró SceneManager en NetworkManager.");
+                Debug.LogError("NetworkManager SceneManager not found.");
             }
         }
     }
+
+    #endregion
 }

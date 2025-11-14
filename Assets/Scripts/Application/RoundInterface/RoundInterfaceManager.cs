@@ -1,68 +1,197 @@
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using TMPro;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class RoundInterfaceManager : NetworkBehaviour
 {
-    [Header("UI")]
-    public Transform playerListContent;
-    public GameObject playerListEntryPrefab;
-    public TMP_Text countdownText;
-    public TMP_Text roundsText;
+    #region Serializable Fields
 
-    [Header("Settings")]
-    public int totalRounds = 5;
-    public float countdownSeconds = 5f;
+    [SerializeField] private GameObject roundManagerPrefab;
+
+    #endregion
+
+    #region Public Fields
+
+    [Header("UI")]
+    [Tooltip("Parent transform for player list entries.")]
+    public Transform playerListContent;
+
+    [Tooltip("Prefab for an individual player list entry.")]
+    public GameObject playerListEntryPrefab;
+
+    [Tooltip("Text UI element to show the countdown timer.")]
+    public TMP_Text countdownText;
+
+    [Tooltip("Text UI element to show current round info.")]
+    public TMP_Text roundsText;
+    
+    #endregion
+
+    #region Private Fields
 
     private Dictionary<ulong, PlayerListEntryUI> entries = new Dictionary<ulong, PlayerListEntryUI>();
-    private NetworkVariable<int> currentRound = new NetworkVariable<int>(0,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server);
+    private bool isRegisteredWithRoundManager = false;
 
+    #endregion
+
+    #region Unity Lifecycle Methods
+
+    /// <summary>
+    /// Subscribes to client connection/disconnection events when enabled.
+    /// </summary>
+    private void OnEnable()
+    {
+
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback += OnClientChanged;
+            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientChanged;
+        }
+    }
+
+    /// <summary>
+    /// Unsubscribes from client events and unregisters from the RoundManager.
+    /// </summary>
+    private void OnDisable()
+    {
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientChanged;
+            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientChanged;
+        }
+
+        UnregisterFromRoundManager();
+    }
+
+    /// <summary>
+    /// Starts the round manager if this is the server and begins late initialization coroutine.
+    /// </summary>
     private void Start()
     {
-        PopulatePlayerList();
-    }
-
-    public override void OnNetworkSpawn()
-    {
-        base.OnNetworkSpawn();
-
-        if (IsServer)
+        if (IsServer && RoundManager.Instance == null)
         {
-            if (currentRound.Value == 0) currentRound.Value = 0;
+            var rm = Instantiate(roundManagerPrefab);
+            rm.GetComponent<NetworkObject>().Spawn(true);
         }
 
-        NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-        NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
-        RefreshUI();
-        PopulatePlayerList();
+        StartCoroutine(LateInitialize());
+    }
 
-        RefreshUI();
-        PopulatePlayerList();
+    #endregion
 
-        if (IsServer)
+    #region Initialization Methods
+
+    /// <summary>
+    /// Waits until RoundManager is ready, then registers for events and populates the player list.
+    /// </summary>
+    private IEnumerator LateInitialize()
+    {
+        while (RoundManager.Instance == null || !RoundManager.Instance.IsSpawned)
         {
-            StartCoroutine(ServerCountdownAndStartRound());
+            yield return new WaitForSeconds(0.2f);
+        }
+
+        RegisterWithRoundManager();
+        PopulatePlayerList();
+    }
+
+    /// <summary>
+    /// Registers for round-related events and updates UI immediately.
+    /// </summary>
+    private void RegisterWithRoundManager()
+    {
+        if (isRegisteredWithRoundManager) return;
+
+        if (RoundManager.Instance != null)
+        {
+            RoundManager.Instance.OnCountdownUpdated += UpdateCountdown;
+            RoundManager.Instance.OnRoundChanged += UpdateRoundInfo;
+            isRegisteredWithRoundManager = true;
+
+            UpdateRoundInfo(RoundManager.Instance.CurrentRound, RoundManager.Instance.totalRounds);
+            UpdateCountdown(Mathf.CeilToInt(RoundManager.Instance.CountdownSeconds));
+        }
+        else
+        {
+            StartCoroutine(RetryRegisterWithRoundManager());
         }
     }
 
-    public override void OnNetworkDespawn()
+    /// <summary>
+    /// Attempts to register with the RoundManager multiple times in case it's not yet initialized.
+    /// </summary>
+    private IEnumerator RetryRegisterWithRoundManager()
     {
-        base.OnNetworkDespawn();
-        NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
-        NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+        int attempts = 0;
+        while (RoundManager.Instance == null && attempts < 20)
+        {
+            yield return new WaitForSeconds(0.2f);
+            attempts++;
+        }
+
+        if (RoundManager.Instance != null && !isRegisteredWithRoundManager)
+        {
+            RegisterWithRoundManager();
+        }
     }
 
-    private void OnClientConnected(ulong clientId) => PopulatePlayerList();
-    private void OnClientDisconnected(ulong clientId) => PopulatePlayerList();
+    /// <summary>
+    /// Unsubscribes from round events.
+    /// </summary>
+    private void UnregisterFromRoundManager()
+    {
+        if (!isRegisteredWithRoundManager) return;
 
+        if (RoundManager.Instance != null)
+        {
+            RoundManager.Instance.OnCountdownUpdated -= UpdateCountdown;
+            RoundManager.Instance.OnRoundChanged -= UpdateRoundInfo;
+        }
+
+        isRegisteredWithRoundManager = false;
+    }
+
+    #endregion
+
+    #region Client Connection Methods
+
+    /// <summary>
+    /// Called whenever a client connects or disconnects. Refreshes the player list after a short delay.
+    /// </summary>
+    /// <param name="clientId">The client ID that changed.</param>
+    private void OnClientChanged(ulong clientId)
+    {
+        StartCoroutine(DelayedPopulatePlayerList());
+    }
+
+    /// <summary>
+    /// Waits briefly and then repopulates the player list.
+    /// </summary>
+    private IEnumerator DelayedPopulatePlayerList()
+    {
+        yield return new WaitForSeconds(0.2f);
+        PopulatePlayerList();
+    }
+
+    #endregion
+
+    #region Player List Methods
+
+    /// <summary>
+    /// Populates the player list UI by instantiating entry prefabs for each connected player.
+    /// </summary>
     private void PopulatePlayerList()
     {
-        foreach (var kv in entries) Destroy(kv.Value.gameObject);
+        foreach (var kv in entries)
+        {
+            if (kv.Value != null)
+                Destroy(kv.Value.gameObject);
+        }
         entries.Clear();
+
+        if (NetworkManager.Singleton == null) return;
 
         foreach (var netObj in NetworkManager.Singleton.SpawnManager.SpawnedObjectsList)
         {
@@ -77,58 +206,30 @@ public class RoundInterfaceManager : NetworkBehaviour
         }
     }
 
-    private void RefreshUI()
+    #endregion
+
+    #region UI Update Methods
+
+    /// <summary>
+    /// Updates the countdown text in the UI.
+    /// </summary>
+    /// <param name="seconds">Remaining seconds for countdown.</param>
+    public void UpdateCountdown(int seconds)
     {
-        roundsText.text = $"Round {currentRound.Value} / {totalRounds}";
+        if (countdownText != null)
+            countdownText.text = seconds > 0 ? $"Listo en {seconds}" : "¡Vamos!";
     }
 
-    private System.Collections.IEnumerator ServerCountdownAndStartRound()
+    /// <summary>
+    /// Updates the round number text in the UI.
+    /// </summary>
+    /// <param name="currentRound">Current round number.</param>
+    /// <param name="totalRounds">Total number of rounds.</param>
+    public void UpdateRoundInfo(int currentRound, int totalRounds)
     {
-        float t = countdownSeconds;
-        while (t > 0f)
-        {
-            UpdateCountdownClientRpc(Mathf.CeilToInt(t));
-            yield return new WaitForSeconds(1f);
-            t -= 1f;
-        }
-
-        UpdateCountdownClientRpc(0);
-        IncrementRoundServerRpc();
-        NetworkManager.Singleton.SceneManager.LoadScene("GameplayScene", LoadSceneMode.Single);
+        if (roundsText != null)
+            roundsText.text = $"Ronda {currentRound} / {totalRounds}";
     }
 
-    [ClientRpc]
-    private void UpdateCountdownClientRpc(int seconds)
-    {
-        if (countdownText != null) countdownText.text = seconds > 0 ? $"Starting in {seconds}" : "Start!";
-    }
-
-    [ServerRpc(RequireOwnership = false)]
-    private void IncrementRoundServerRpc()
-    {
-        if (!IsServer) return;
-        currentRound.Value++;
-        RefreshUI();
-    }
-
-    [ServerRpc(RequireOwnership = false)]
-    public void OnRoundEndedServerRpc()
-    {
-        if (!IsServer) return;
-
-        if (currentRound.Value >= totalRounds)
-        {
-            UpdateAllClientsRoundInfoClientRpc(currentRound.Value);
-            return;
-        }
-
-        StartCoroutine(ServerCountdownAndStartRound());
-    }
-
-    [ClientRpc]
-    private void UpdateAllClientsRoundInfoClientRpc(int round)
-    {
-        roundsText.text = $"Round {round} / {totalRounds}";
-        PopulatePlayerList();
-    }
+    #endregion
 }

@@ -204,7 +204,6 @@ MonoBehaviour:
   groundCheckPoint: {fileID: 572655738322768948}
   groundCheckRadius: 0.1
   serverSyncRate: 0.05
-  maxHealth: 100
 --- !u!114 &2205661803709767447
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -411,9 +410,9 @@ MonoBehaviour:
   ScaleInterpolationType: 0
   PositionLerpSmoothing: 1
   PositionMaxInterpolationTime: 0.1
-  RotationLerpSmoothing: 1
+  RotationLerpSmoothing: 0
   RotationMaxInterpolationTime: 0.1
-  ScaleLerpSmoothing: 1
+  ScaleLerpSmoothing: 0
   ScaleMaxInterpolationTime: 0.1
   AuthorityMode: 1
   TickSyncChildren: 0

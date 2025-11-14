@@ -1,8 +1,10 @@
+using System;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using TMPro;
 using Unity.Netcode;
+using Unity.Services.Multiplayer;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
@@ -10,6 +12,8 @@ using UnityEngine.UI;
 /// </summary>
 public class GameManager : MonoBehaviour
 {
+    #region Public Fields
+
     [Header("Buttons")]
     [Tooltip("Button to start hosting a session.")]
     public Button hostButton;
@@ -21,6 +25,10 @@ public class GameManager : MonoBehaviour
     [Tooltip("Input field for entering the session code.")]
     public TMP_InputField sessionCodeInput;
 
+    #endregion
+
+    #region Unity Callbacks
+
     /// <summary>
     /// Initializes button listeners when the scene starts.
     /// </summary>
@@ -30,11 +38,15 @@ public class GameManager : MonoBehaviour
         joinButton.onClick.AddListener(async () => await OnJoinClicked());
     }
 
+    #endregion
+
+    #region Session Management Methods
 
     /// <summary>
     /// Called when the "Create Session" button is clicked.
-    /// Creates a new session.
+    /// Creates a new multiplayer session and starts the host.
     /// </summary>
+    /// <returns>Asynchronous task that completes when the session creation is done.</returns>
     private async Task OnCreateSessionClicked()
     {
         Debug.Log("Creating new session...");
@@ -45,7 +57,7 @@ public class GameManager : MonoBehaviour
         {
             Debug.Log("Session created successfully, starting host...");
 
-            NetworkManager.Singleton.SceneManager.LoadScene("LobbyScene", LoadSceneMode.Single);
+            SceneTransitionManager.Instance.LoadSceneWithTransition("LobbyScene");
         }
         else
         {
@@ -54,9 +66,10 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Called when the join button is clicked.
-    /// Attempts to join a session using the provided session name.
+    /// Called when the "Join Session" button is clicked.
+    /// Attempts to join a multiplayer session using the provided session code.
     /// </summary>
+    /// <returns>Asynchronous task that completes when the session join process is done.</returns>
     private async Task OnJoinClicked()
     {
         var code = sessionCodeInput.text.Trim();
@@ -68,15 +81,33 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"Joining session with code: {code}...");
 
-        await SessionManager.Instance.JoinSessionByCodeAsync(code);
+        SceneTransitionManager.Instance.PlayLocalFadeOut();
+        float time = SceneTransitionManager.Instance.transitionDuration + 0.5f;
 
-        if (SessionManager.Instance.ActiveSession != null)
+        try
         {
-            Debug.Log("Joined session successfully, starting client...");
+            await SessionManager.Instance.JoinSessionByCodeAsync(code);
+
+            if (SessionManager.Instance.ActiveSession != null)
+            {
+                NetworkManager.Singleton.StartClient();
+            }
+            else
+            {
+                Debug.LogError("Failed to join session after join call. Session may not exist or join failed.");
+                var ms = (int)(time * 1000);
+                await Task.Delay(ms);
+                SceneTransitionManager.Instance.PlayLocalFadeIn();
+            }
         }
-        else
+        catch (Exception joinEx)
         {
-            Debug.LogError("Failed to join session with the provided code.");
+            Debug.LogError($"Join failed: {joinEx.Message}");
+            var ms = (int)(time * 1000);
+            await Task.Delay(ms);
+            SceneTransitionManager.Instance.PlayLocalFadeIn();
         }
     }
+
+    #endregion
 }

@@ -9,9 +9,7 @@
         "Unity.Services.Lobbies",
         "Unity.Netcode.Runtime",
         "Unity.Collections",
-        "Enums",
-        "Shared",
-        "QTE"
+        "Enums"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

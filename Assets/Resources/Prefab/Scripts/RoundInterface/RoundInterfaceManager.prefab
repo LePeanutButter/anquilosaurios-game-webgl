@@ -45,7 +45,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2901973479
+  GlobalObjectIdHash: 2638306131
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -71,9 +71,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Application::RoundInterfaceManager
   ShowTopMostFoldoutHeaderGroup: 1
+  roundManagerPrefab: {fileID: 3118533315397129477, guid: e063b45b991dcfb409126722f8ca024d, type: 3}
   playerListContent: {fileID: 0}
   playerListEntryPrefab: {fileID: 0}
   countdownText: {fileID: 0}
   roundsText: {fileID: 0}
-  totalRounds: 5
-  countdownSeconds: 5
