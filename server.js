@@ -8,18 +8,14 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const app = express();
+
 const FRONT_ORIGIN = process.env.FRONT_ORIGIN;
-
-/**
- * @constant {number} PORT - The port number the server listens on.
- * Defaults to 8080 if no environment variable is set.
- */
 const PORT = process.env.PORT || 8080;
-
-/**
- * @constant {string} BUILD_PATH - Absolute path to the Unity WebGL build directory.
- */
 const BUILD_PATH = path.join(__dirname, 'webgl');
+
+const ALLOWED_ORIGINS = FRONT_ORIGIN 
+  ? FRONT_ORIGIN.split(',').map(origin => origin.trim())
+  : [];
 
 /**
  * Middleware to configure security and cross-origin headers for Unity WebGL hosting.
@@ -37,20 +33,25 @@ const BUILD_PATH = path.join(__dirname, 'webgl');
  * @param {express.NextFunction} next - Callback to pass control to the next middleware.
  */
 app.use((req, res, next) => {
-  res.setHeader(
-    "Content-Security-Policy",
-    `frame-ancestors ${FRONT_ORIGIN};`
-  );
-
-  res.removeHeader("X-Frame-Options");
-
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
-
-  res.setHeader("Access-Control-Allow-Origin", FRONT_ORIGIN);
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
+  // Build CSP frame-ancestors with multiple origins
+  const cspFrameAncestors = ALLOWED_ORIGINS.length > 0 
+    ? `frame-ancestors ${ALLOWED_ORIGINS.join(' ')};`
+    : "frame-ancestors 'none';";
+  
+  res.setHeader('Content-Security-Policy', cspFrameAncestors);
+  res.removeHeader('X-Frame-Options');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (ALLOWED_ORIGINS.length === 1) {
+    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGINS[0]);
+  }
+  
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   next();
 });
 
@@ -123,4 +124,5 @@ app.use(express.static(BUILD_PATH, {
 app.listen(PORT, () => {
     console.log(`Unity WebGL Server running on port ${PORT}`);
     console.log(`Serving files from: ${BUILD_PATH}`);
+    console.log(`Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
 });
