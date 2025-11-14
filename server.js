@@ -33,16 +33,14 @@ const ALLOWED_ORIGINS = FRONT_ORIGIN
  * @param {express.NextFunction} next - Callback to pass control to the next middleware.
  */
 app.use((req, res, next) => {
-  // Build CSP frame-ancestors with multiple origins
   const cspFrameAncestors = ALLOWED_ORIGINS.length > 0 
     ? `frame-ancestors ${ALLOWED_ORIGINS.join(' ')};`
     : "frame-ancestors 'none';";
   
   res.setHeader('Content-Security-Policy', cspFrameAncestors);
   res.removeHeader('X-Frame-Options');
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
   const origin = req.headers.origin;
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
