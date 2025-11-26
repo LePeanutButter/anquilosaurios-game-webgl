@@ -115,13 +115,50 @@ jobs:
           echo "site/wwwroot/webgl listing (first 50 entries):"
           find site/wwwroot/webgl | head -n 50
 
-      # Step 3: Copy Files from Server to the Root of the Deployment Package
+      # Step 3: Generate SHA-256 hashes for WebGL files
+      - name: Generate SHA-256 hashes and create manifest
+        run: |
+          echo "Generating SHA-256 hashes for WebGL files..."
+          
+          # Create manifest.json with hashes
+          echo "{" > site/wwwroot/webgl-manifest.json
+          echo '  "files": {' >> site/wwwroot/webgl-manifest.json
+          
+          first=true
+          find site/wwwroot/webgl -type f \( -name "*.js" -o -name "*.wasm" -o -name "*.data" -o -name "*.unityweb" \) | while read file; do
+            # Get relative path from webgl directory
+            relative_path=$(echo "$file" | sed 's|site/wwwroot/webgl/||')
+            
+            # Calculate SHA-256 hash
+            hash=$(sha256sum "$file" | awk '{print $1}')
+            
+            # Add comma if not first entry
+            if [ "$first" = true ]; then
+              first=false
+            else
+              echo "," >> site/wwwroot/webgl-manifest.json
+            fi
+            
+            # Add entry to manifest
+            echo -n "    \"$relative_path\": \"sha256-$hash\"" >> site/wwwroot/webgl-manifest.json
+            
+            echo "Generated hash for: $relative_path"
+          done
+          
+          echo "" >> site/wwwroot/webgl-manifest.json
+          echo "  }" >> site/wwwroot/webgl-manifest.json
+          echo "}" >> site/wwwroot/webgl-manifest.json
+          
+          echo "Manifest created:"
+          cat site/wwwroot/webgl-manifest.json
+
+      # Step 4: Copy Files from Server to the Root of the Deployment Package
       - name: Copy Server Files to Deployment Package
         run: |
           cp package.json site/wwwroot
           cp server.js site/wwwroot
           
-      # Step 4: Install Node.js Dependencies
+      # Step 5: Install Node.js Dependencies
       - name: Install Node.js Dependencies
         uses: actions/setup-node@v4
         with:
@@ -129,7 +166,7 @@ jobs:
       - name: Install dependencies
         run: npm install --prefix site/wwwroot/
 
-      # Step 5: Login to Azure using service principal credentials
+      # Step 6: Login to Azure using service principal credentials
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -137,7 +174,7 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_8F216CF2383D45149E7568ECF96FA6D4 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_2373CA70EE1D4BC08D99AF2269BE356D }}
 
-      # Step 6: Deploy the WebGL build to Azure Web App
+      # Step 7: Deploy the WebGL build to Azure Web App
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
@@ -145,6 +182,6 @@ jobs:
           slot-name: 'Production'
           package: site/wwwroot
 
-      # Step 7: Logout from Azure to clean up session
+      # Step 8: Logout from Azure to clean up session
       - name: Logout from Azure
         run: az logout

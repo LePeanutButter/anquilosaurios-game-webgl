@@ -2,11 +2,13 @@
  * Unity WebGL Express Server
  * This server hosts Unity WebGL builds with proper handling of Brotli (.br) and Gzip (.gz) compressed files.
  * It sets appropriate Content-Type and Content-Encoding headers, and applies caching strategies for static assets.
+ * Additionally, it implements Content Security Policy (CSP) with SHA-256 hashes for WebGL files.
  */
 require('dotenv').config();
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const app = express();
 
 const FRONT_ORIGIN = process.env.FRONT_ORIGIN;
@@ -17,14 +19,52 @@ const ALLOWED_ORIGINS = FRONT_ORIGIN
   ? FRONT_ORIGIN.split(',').map(origin => origin.trim())
   : [];
 
+// Load the WebGL manifest with file hashes
+let webglManifest = {};
+const manifestPath = path.join(__dirname, 'webgl-manifest.json');
+
+try {
+  if (fs.existsSync(manifestPath)) {
+    const manifestData = fs.readFileSync(manifestPath, 'utf8');
+    webglManifest = JSON.parse(manifestData);
+    console.log('WebGL manifest loaded successfully');
+    console.log(`Found ${Object.keys(webglManifest.files || {}).length} files with hashes`);
+  } else {
+    console.warn('webgl-manifest.json not found. CSP hashes will not be applied.');
+  }
+} catch (error) {
+  console.error('Error loading webgl-manifest.json:', error.message);
+}
+
+/**
+ * Helper function to get the file hash from manifest
+ * @param {string} requestPath - The request path
+ * @returns {string|null} - The hash if found, null otherwise
+ */
+function getFileHash(requestPath) {
+  // Normalize path: remove leading slash and handle compressed files
+  let filePath = requestPath.startsWith('/') ? requestPath.substring(1) : requestPath;
+  
+  // Check for compressed variants
+  if (filePath.endsWith('.br')) {
+    filePath = filePath.slice(0, -3); // Remove .br extension
+  } else if (filePath.endsWith('.gz')) {
+    filePath = filePath.slice(0, -3); // Remove .gz extension
+  }
+  
+  return webglManifest.files?.[filePath] || null;
+}
+
 /**
  * Middleware to configure security and cross-origin headers for Unity WebGL hosting.
+ * Also applies CSP with file-specific SHA-256 hashes.
  *
  * Sets headers to:
  * - Allow embedding only from the specified frontend origin via Content-Security-Policy.
  * - Remove X-Frame-Options to avoid iframe restrictions.
  * - Enforce secure cross-origin isolation for WebAssembly and SharedArrayBuffer usage.
  * - Enable CORS for the specified frontend origin with allowed methods and headers.
+ * - Apply CSP with SHA-256 hashes for WebGL script files.
  *
  * @function
  * @name securityHeadersMiddleware
@@ -33,11 +73,30 @@ const ALLOWED_ORIGINS = FRONT_ORIGIN
  * @param {express.NextFunction} next - Callback to pass control to the next middleware.
  */
 app.use((req, res, next) => {
-  const cspFrameAncestors = ALLOWED_ORIGINS.length > 0 
-    ? `frame-ancestors ${ALLOWED_ORIGINS.join(' ')};`
-    : "frame-ancestors 'none';";
+  // Get file hash if available
+  const fileHash = getFileHash(req.path);
   
-  res.setHeader('Content-Security-Policy', cspFrameAncestors);
+  // Build CSP header
+  let cspParts = [];
+  
+  // Frame ancestors
+  if (ALLOWED_ORIGINS.length > 0) {
+    cspParts.push(`frame-ancestors ${ALLOWED_ORIGINS.join(' ')}`);
+  } else {
+    cspParts.push("frame-ancestors 'none'");
+  }
+  
+  // Add script-src with hash if this is a JS or WASM file
+  if (fileHash && (req.path.endsWith('.js') || req.path.endsWith('.js.br') || req.path.endsWith('.js.gz'))) {
+    cspParts.push(`script-src 'self' '${fileHash}' 'unsafe-eval'`);
+    console.log(`Applied CSP hash to: ${req.path} -> ${fileHash}`);
+  } else if (fileHash && (req.path.endsWith('.wasm') || req.path.endsWith('.wasm.br') || req.path.endsWith('.wasm.gz'))) {
+    cspParts.push(`script-src 'self' '${fileHash}' 'unsafe-eval'`);
+    cspParts.push(`script-src-elem 'self' '${fileHash}'`);
+    console.log(`Applied CSP hash to WASM: ${req.path} -> ${fileHash}`);
+  }
+  
+  res.setHeader('Content-Security-Policy', cspParts.join('; '));
   res.removeHeader('X-Frame-Options');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
@@ -117,10 +176,32 @@ app.use(express.static(BUILD_PATH, {
 }));
 
 /**
+ * Health check endpoint to verify server status and manifest loading
+ */
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    manifestLoaded: Object.keys(webglManifest.files || {}).length > 0,
+    filesWithHashes: Object.keys(webglManifest.files || {}).length,
+    allowedOrigins: ALLOWED_ORIGINS
+  });
+});
+
+/** 
  * Starts the Express server and logs the active port and build path.
  */
 app.listen(PORT, () => {
-    console.log(`Unity WebGL Server running on port ${PORT}`);
-    console.log(`Serving files from: ${BUILD_PATH}`);
-    console.log(`Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
+    console.log(`
+    Unity WebGL Server
+    Port: ${PORT}
+    Build Path: ${BUILD_PATH.split('/').pop()}
+    CSP Hashes: ${(Object.keys(webglManifest.files || {}).length > 0 ? 'ENABLED' : 'DISABLED')}
+    Allowed Origins: ${ALLOWED_ORIGINS.length}
+    `);
+
+    if (ALLOWED_ORIGINS.length > 0) {
+        console.log('Allowed origins:');
+        ALLOWED_ORIGINS.forEach(origin => console.log(`- ${origin}`));
+    }
 });
