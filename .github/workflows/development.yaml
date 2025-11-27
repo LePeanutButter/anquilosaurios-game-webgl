@@ -145,7 +145,11 @@ jobs:
       - name: Combine Coverage Reports
         run: |
           mkdir -p coverage_combined
-          find coverage -name 'coverage.xml' -exec cp {} coverage_combined/ \;
+          if [ -d coverage ]; then
+            find coverage -name 'coverage.xml' -exec cp {} coverage_combined/ \;
+          else
+            echo "No coverage directory found, skipping combine step."
+          fi
 
       # Step 8: Run SonarCloud analysis
       - name: SonarCloud Scan
