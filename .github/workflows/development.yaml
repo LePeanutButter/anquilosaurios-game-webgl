@@ -52,7 +52,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: Library
-          key: Library-${{ matrix.targetPlatform }}
+          key: Library-${{ matrix.testMode }}
           restore-keys: Library-
 
       # Step 3: Run Unity tests and generate coverage
@@ -117,7 +117,34 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      # Step 4: Run SonarCloud analysis
+      # Step 4: Download coverage artifact for playmode tests
+      - name: Download Coverage Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Coverage results for playmode
+          path: coverage/playmode
+
+      # Step 5: Download coverage artifact for editmode tests
+      - name: Download Coverage Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Coverage results for editmode
+          path: coverage/editmode
+
+      # Step 6: Download coverage artifact for standalone tests
+      - name: Download Coverage Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Coverage results for standalone
+          path: coverage/standalone
+
+      # Step 7: Combine all coverage XML files
+      - name: Combine Coverage Reports
+        run: |
+          mkdir -p coverage_combined
+          find coverage -name 'coverage.xml' -exec cp {} coverage_combined/ \;
+
+      # Step 8: Run SonarCloud analysis
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
         env:
@@ -128,7 +155,7 @@ jobs:
   # Purpose: Build Unity WebGL game
   # =========================================
   build:
-    name: Build for ${{ matrix.targetPlatform }}
+    name: Build for WebGL
     needs: sonar_scan
     runs-on: ubuntu-latest
     strategy:
