@@ -123,6 +123,7 @@ jobs:
         with:
           name: Coverage results for playmode
           path: coverage/playmode
+        continue-on-error: true
 
       # Step 5: Download coverage artifact for editmode tests
       - name: Download Coverage Artifacts
@@ -130,6 +131,7 @@ jobs:
         with:
           name: Coverage results for editmode
           path: coverage/editmode
+        continue-on-error: true
 
       # Step 6: Download coverage artifact for standalone tests
       - name: Download Coverage Artifacts
@@ -137,6 +139,7 @@ jobs:
         with:
           name: Coverage results for standalone
           path: coverage/standalone
+        continue-on-error: true
 
       # Step 7: Combine all coverage XML files
       - name: Combine Coverage Reports
