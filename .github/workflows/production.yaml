@@ -68,7 +68,7 @@ jobs:
           testMode: ${{ matrix.testMode }}
           artifactsPath: ${{ matrix.testMode }}-artifacts
           checkName: ${{ matrix.testMode }} Test Results
-          coverageOptions: 'generateAdditionalMetrics;generateHtmlReport;generateBadgeReport;assemblyFilters:+my.assembly.*'
+          coverageOptions: 'generateAdditionalMetrics;generateHtmlReport;generateXmlReport;generateBadgeReport;assemblyFilters:+Assembly-CSharp'
 
       # Step 4: Upload test results
       - name: Upload Test Artifacts
@@ -141,15 +141,20 @@ jobs:
           path: coverage/standalone
         continue-on-error: true
 
-      # Step 7: Combine all coverage XML files
+      # Step 7: Combine Coverage Reports
       - name: Combine Coverage Reports
         run: |
           mkdir -p coverage_combined
-          if [ -d coverage ]; then
-            find coverage -name 'coverage.xml' -exec cp {} coverage_combined/ \;
-          else
-            echo "No coverage directory found, skipping combine step."
-          fi
+
+          echo "Searching for coverage.xml inside downloaded artifacts..."
+
+          find coverage -type f -name 'coverage.xml' | while read -r file; do
+            echo "Found: $file"
+            cp "$file" "coverage_combined/$(basename $file .xml)-$(date +%s).xml"
+          done
+
+          echo "Combined coverage files:"
+          ls -la coverage_combined
 
       # Step 8: Run SonarCloud analysis
       - name: SonarCloud Scan
