@@ -1,22 +1,22 @@
-# Boom Buddies – Unity WebGL Game Client
+# Power Garden: Juicy Brawl! – Unity WebGL Game Client
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=LePeanutButter_anquilosaurios-game-webgl&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=LePeanutButter_anquilosaurios-game-webgl)
+
+> Unity WebGL client for Power Garden: Juicy Brawl! – a multiplayer browser game built for accessibility and scale. 
 
 
-> Unity WebGL client for Boom Buddies – a multiplayer browser game built for accessibility and scale. 
-
-
-Boom Buddies is a lightweight, multiplayer browser game designed for accessibility, scalability, and social engagement across Latin America. This repository contains the Unity WebGL game client, which integrates with a SvelteKit frontend and ASP.NET backend to deliver immersive gameplay optimized for low-end devices and unstable internet connections.
+Power Garden: Juicy Brawl! is a lightweight, multiplayer browser game designed for accessibility, scalability, and social engagement across Latin America. This repository contains the Unity WebGL game client, which integrates with a SvelteKit frontend and ASP.NET backend to deliver immersive gameplay optimized for low-end devices and unstable internet connections.
 
 This repository contains:
 
-1. The Unity WebGL build and source code for Boom Buddies.
+1. The Unity WebGL build and source code for Power Garden: Juicy Brawl!.
 2. Integration points for Unity Relay, Unity Voice/AI, and RESTful backend APIs.
 3. Deployment-ready WebGL export for Azure Blob Storage or App Service.
 4. A compliant badge to indicate adherence to the Standard Readme spec.
 5. A license under Creative Commons Attribution-NonCommercial-NoDerivs 4.0 International.
 
-Standard Readme is designed for open source libraries. Although Boom Buddies is not open-source in the traditional sense, this format ensures clarity, maintainability, and consistency across documentation.
+Standard Readme is designed for open source libraries. Although Power Garden: Juicy Brawl! is not open-source in the traditional sense, this format ensures clarity, maintainability, and consistency across documentation.
 
 ## Table of Contents
 
@@ -31,9 +31,9 @@ Standard Readme is designed for open source libraries. Although Boom Buddies is 
 
 ## Background
 
-Boom Buddies is a strategic initiative at the intersection of entertainment, technology, and business scalability. Its value proposition includes:
+Power Garden: Juicy Brawl! is a strategic initiative at the intersection of entertainment, technology, and business scalability. Its value proposition includes:
 
-1. **Access to underserved markets**: By removing technical barriers, Boom Buddies reaches millions of players excluded from mainstream multiplayer experiences.
+1. **Access to underserved markets**: By removing technical barriers, Power Garden: Juicy Brawl! reaches millions of players excluded from mainstream multiplayer experiences.
 2. **Scalable monetization**: The game leverages integrated ads and optional subscriptions.
 3. **Modern cloud-ready architecture**: Built on Unity, Svelte, ASP.NET, Redis, MySQL, and Azure, ensuring high performance, low latency, and seamless scalability.
 
@@ -62,7 +62,7 @@ The output will be located in `/Build/WebGL`.
 
 ## Usage
 
-Boom Buddies is embedded into the frontend via iframe and communicates with the backend via REST API. Authentication tokens are passed securely using `postMessage()`.
+Power Garden: Juicy Brawl! is embedded into the frontend via iframe and communicates with the backend via REST API. Authentication tokens are passed securely using `postMessage()`.
 
 ### WebGL Build
 

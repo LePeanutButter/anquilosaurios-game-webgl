@@ -2,11 +2,13 @@
 # GitHub Actions Workflow: CI Build & Deploy
 # Environment: Development
 # Description:
-#   - Builds and deploys the BoomBuddies Unity WebGL game
+#   - Runs Unity tests (dynamic analysis) and generates coverage
+#   - Performs SonarCloud static analysis
+#   - Builds and deploys the Power Garden: Juicy Brawl! Unity WebGL game
 #   - Runs on every push or pull request to 'development'
 # ===========================================
 
-name: CI Build & Deploy (BoomBuddies - development)
+name: CI Build & Deploy (Power Garden - development)
 
 # -------------------------------------------
 # Trigger: Run workflow on push or PR to 'development' branch
@@ -24,11 +26,121 @@ on:
 # -------------------------------------------
 jobs:
   # =========================================
+  # Job: Dynamic Analysis (Tests + Coverage)
+  # Purpose: Run Unity tests and generate coverage for SonarCloud
+  # =========================================
+  test_and_coverage:
+    name: Unity Tests & Coverage
+    runs-on: windows-latest
+    steps:
+      # Step 1: Checkout source code
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      # Step 2: Restore Library cache
+      - name: Restore Unity Library
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-Test-All
+          restore-keys: Library-
+
+      # Step 3: Run Unity tests and generate coverage
+      - name: Run Unity Tests with Coverage
+        uses: game-ci/unity-test-runner@v4
+        id: tests
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          testMode: all
+          artifactsPath: test-results
+          coverageOptions: >
+            generateAdditionalMetrics;
+            generateHtmlReport;
+            generateXmlReport;
+            generateBadgeReport;
+            assemblyFilters:+Enums;+Application'
+          coveragePath: coverage
+
+      # Step 4: Upload test results
+      - name: Upload Test Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Test-Results
+          path: test-results
+
+      # Step 5: Upload coverage results
+      - name: Upload Coverage Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Coverage
+          path: coverage
+
+  # =========================================
+  # Job: SonarCloud Scan
+  # Purpose: Run static code analysis with SonarCloud
+  # =========================================
+  sonar_scan:
+    name: Sonar Cloud static analysis
+    needs: test_and_coverage
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout source code
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      # Step 2: Install Java
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # Step 3: Cache SonarCloud packages
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      # Step 4: Download combined coverage from test job
+      - name: Download Coverage Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Coverage
+          path: coverage
+
+      # Step 5: Show files for debugging
+      - name: List coverage files
+        run: |
+          echo "Coverage artifact content:"
+          find coverage -type f | sed 's/^/ - /'
+
+      # Step 6: Run SonarCloud analysis
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # =========================================
   # Job: Build Stage
   # Purpose: Build Unity WebGL game
   # =========================================
   build:
-    name: Build for ${{ matrix.targetPlatform }}
+    name: Build for WebGL
+    needs: sonar_scan
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
