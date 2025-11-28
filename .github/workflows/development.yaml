@@ -32,12 +32,6 @@ jobs:
   test_and_coverage:
     name: Unity Tests & Coverage
     runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        testMode:
-          - playmode
-          - editmode
     steps:
       # Step 1: Checkout source code
       - name: Checkout project
@@ -51,7 +45,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: Library
-          key: Library-${{ matrix.testMode }}
+          key: Library-Test-All
           restore-keys: Library-
 
       # Step 3: Run Unity tests and generate coverage
@@ -62,33 +56,32 @@ jobs:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          testMode: ${{ matrix.testMode }}
-          artifactsPath: ${{ matrix.testMode }}-artifacts
-          checkName: ${{ matrix.testMode }} Test Results
+          testMode: all
+          artifactsPath: test-results
           coverageOptions: >
             generateAdditionalMetrics;
             generateHtmlReport;
             generateXmlReport;
             generateBadgeReport;
             assemblyFilters:+Enums;+Application'
+          coveragePath: coverage
 
       # Step 4: Upload test results
       - name: Upload Test Artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Test results for ${{ matrix.testMode }}
-          path: ${{ steps.tests.outputs.artifactsPath }}
+          name: Test-Results
+          path: test-results
 
       # Step 5: Upload coverage results
       - name: Upload Coverage Artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Coverage results for ${{ matrix.testMode }}
-          path: ${{ steps.tests.outputs.coveragePath }}
+          name: Coverage
+          path: coverage
 
   # =========================================
   # Job: SonarCloud Scan
@@ -121,38 +114,20 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      # Step 4: Download coverage artifact for playmode tests
-      - name: Download Coverage Artifacts
+      # Step 4: Download combined coverage from test job
+      - name: Download Coverage Artifact
         uses: actions/download-artifact@v4
         with:
-          name: Coverage results for playmode
-          path: coverage/playmode
-        continue-on-error: true
+          name: Coverage
+          path: coverage
 
-      # Step 5: Download coverage artifact for editmode tests
-      - name: Download Coverage Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: Coverage results for editmode
-          path: coverage/editmode
-        continue-on-error: true
-
-      # Step 6: Combine Coverage Reports
-      - name: Combine Coverage Reports
+      # Step 5: Show files for debugging
+      - name: List coverage files
         run: |
-          mkdir -p coverage_combined
+          echo "Coverage artifact content:"
+          find coverage -type f | sed 's/^/ - /'
 
-          echo "Searching for coverage.xml inside downloaded artifacts..."
-
-          find coverage -type f -name 'coverage.xml' | while read -r file; do
-            echo "Found: $file"
-            cp "$file" "coverage_combined/$(basename $file .xml)-$(date +%s).xml"
-          done
-
-          echo "Combined coverage files:"
-          ls -la coverage_combined
-
-      # Step 7: Run SonarCloud analysis
+      # Step 6: Run SonarCloud analysis
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
         env:
