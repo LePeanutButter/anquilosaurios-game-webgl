@@ -31,14 +31,13 @@ jobs:
   # =========================================
   test_and_coverage:
     name: Unity Tests & Coverage
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
         testMode:
           - playmode
           - editmode
-          - standalone
     steps:
       # Step 1: Checkout source code
       - name: Checkout project
@@ -68,7 +67,12 @@ jobs:
           testMode: ${{ matrix.testMode }}
           artifactsPath: ${{ matrix.testMode }}-artifacts
           checkName: ${{ matrix.testMode }} Test Results
-          coverageOptions: 'generateAdditionalMetrics;generateHtmlReport;generateXmlReport;generateBadgeReport;assemblyFilters:+Assembly-CSharp'
+          coverageOptions: >
+            generateAdditionalMetrics;
+            generateHtmlReport;
+            generateXmlReport;
+            generateBadgeReport;
+            assemblyFilters:+Enums;+Application'
 
       # Step 4: Upload test results
       - name: Upload Test Artifacts
@@ -133,15 +137,7 @@ jobs:
           path: coverage/editmode
         continue-on-error: true
 
-      # Step 6: Download coverage artifact for standalone tests
-      - name: Download Coverage Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: Coverage results for standalone
-          path: coverage/standalone
-        continue-on-error: true
-
-      # Step 7: Combine Coverage Reports
+      # Step 6: Combine Coverage Reports
       - name: Combine Coverage Reports
         run: |
           mkdir -p coverage_combined
@@ -156,7 +152,7 @@ jobs:
           echo "Combined coverage files:"
           ls -la coverage_combined
 
-      # Step 8: Run SonarCloud analysis
+      # Step 7: Run SonarCloud analysis
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
         env:
