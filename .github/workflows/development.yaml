@@ -59,13 +59,7 @@ jobs:
         with:
           testMode: all
           artifactsPath: test-results
-          coverageOptions: >
-            generateAdditionalMetrics;
-            generateHtmlReport;
-            generateXmlReport;
-            generateBadgeReport;
-            assemblyFilters:+Enums;+Application'
-          coveragePath: coverage
+          coverageOptions: 'generateAdditionalMetrics;generateHtmlReport;generateXmlReport;generateBadgeReport;assemblyFilters:+Enum;+Application'
 
       # Step 4: Upload test results
       - name: Upload Test Artifacts
@@ -81,7 +75,7 @@ jobs:
         if: always()
         with:
           name: Coverage
-          path: coverage
+          path: CodeCoverage
 
   # =========================================
   # Job: SonarCloud Scan
