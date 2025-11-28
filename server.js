@@ -42,14 +42,17 @@ try {
  * @returns {string|null} - The hash if found, null otherwise
  */
 function getFileHash(requestPath) {
-  // Normalize path: remove leading slash and handle compressed files
   let filePath = requestPath.startsWith('/') ? requestPath.substring(1) : requestPath;
   
-  // Check for compressed variants
+  // Remove /webgl/ prefix if present
+  if (filePath.startsWith('webgl/')) {
+    filePath = filePath.substring(6);
+  }
+  
   if (filePath.endsWith('.br')) {
-    filePath = filePath.slice(0, -3); // Remove .br extension
+    filePath = filePath.slice(0, -3);
   } else if (filePath.endsWith('.gz')) {
-    filePath = filePath.slice(0, -3); // Remove .gz extension
+    filePath = filePath.slice(0, -3);
   }
   
   return webglManifest.files?.[filePath] || null;
@@ -150,6 +153,19 @@ app.get('*.gz', (req, res, next) => {
     
     res.set('Content-Encoding', 'gzip');
     next();
+});
+
+app.get('/webgl-manifest.json', (req, res) => {
+  // Validación: si el manifest está vacío, retorna error
+  if (Object.keys(webglManifest.files || {}).length === 0) {
+    return res.status(503).json({
+      error: 'Manifest not available',
+      message: 'The integrity manifest has not been loaded or is empty'
+    });
+  }
+  
+  // Si todo está bien, retorna el manifest
+  res.json(webglManifest);
 });
 
 /**
