@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
@@ -169,6 +169,7 @@ public class SessionManager : NetworkBehaviour
 
     /// <summary>
     /// Assigns a unique available character to a client.
+    /// Uses the authenticated user name from WebAuthReceiver if available.
     /// </summary>
     /// <param name="clientId">The unique identifier of the client to assign a character to.</param>
     private void AssignCharacterToClient(ulong clientId)
@@ -191,8 +192,8 @@ public class SessionManager : NetworkBehaviour
         CharacterType assigned = GetUniqueCharacter();
         playerCharacterMap[clientId] = assigned;
 
-        playerState.InitializeDataServer($"Player_{clientId}", (int)assigned);
-        Debug.Log($"Server initialized PlayerState for client {clientId} with character {assigned}");
+        // Usar coroutine para esperar autenticación
+        StartCoroutine(WaitForAuthAndAssignName(clientId, assigned, playerState));
     }
 
     /// <summary>
@@ -417,4 +418,83 @@ public class SessionManager : NetworkBehaviour
     }
 
     #endregion
+
+    // ============ AGREGAR ESTOS 2 MÉTODOS AQUÍ ============
+
+    /// <summary>
+    /// Coroutine que espera a que WebAuthReceiver tenga datos antes de asignar el nombre
+    /// </summary>
+    private IEnumerator WaitForAuthAndAssignName(ulong clientId, CharacterType assigned, PlayerState playerState)
+    {
+        Debug.Log($"[SessionManager] Esperando datos de autenticación para cliente {clientId}...");
+        
+        WebAuthReceiver webAuthReceiver = null;
+        float searchTime = 0f;
+        float maxSearchTime = 2f;
+        
+        // Buscar WebAuthReceiver (puede tardar en crearse)
+        while (webAuthReceiver == null && searchTime < maxSearchTime)
+        {
+            webAuthReceiver = FindObjectOfType<WebAuthReceiver>();
+            if (webAuthReceiver == null)
+            {
+                yield return new WaitForSeconds(0.1f);
+                searchTime += 0.1f;
+            }
+        }
+        
+        if (webAuthReceiver == null)
+        {
+            Debug.LogWarning($"[SessionManager] WebAuthReceiver no encontrado después de {searchTime:F1}s");
+            AssignFallbackName(clientId, assigned, playerState);
+            yield break;
+        }
+        
+        Debug.Log($"[SessionManager] WebAuthReceiver encontrado, esperando autenticación...");
+        
+        // Esperar a que tenga datos de autenticación (máximo 5 segundos)
+        float waitTime = 0f;
+        float maxWaitTime = 5f;
+        
+        while (!webAuthReceiver.IsAuthenticated && waitTime < maxWaitTime)
+        {
+            yield return new WaitForSeconds(0.1f);
+            waitTime += 0.1f;
+            
+            if (waitTime % 1f < 0.15f) // Log cada segundo
+            {
+                Debug.Log($"[SessionManager] Esperando autenticación... ({waitTime:F1}s / {maxWaitTime}s)");
+            }
+        }
+        
+        // Asignar nombre
+        string playerName;
+        
+        if (webAuthReceiver.IsAuthenticated && 
+            !string.IsNullOrEmpty(webAuthReceiver.UserName) && 
+            webAuthReceiver.UserName != "Player")
+        {
+            playerName = webAuthReceiver.UserName;
+            Debug.Log($"[SessionManager] Usando nombre autenticado: {playerName}");
+        }
+        else
+        {
+            playerName = $"Player_{clientId}";
+            Debug.Log($"[SessionManager] Timeout, usando fallback: {playerName}");
+        }
+        
+        // Inicializar PlayerState con el nombre
+        playerState.InitializeDataServer(playerName, (int)assigned);
+        Debug.Log($"[SessionManager] PlayerState inicializado - Cliente {clientId} | Nombre: '{playerName}' | Personaje: {assigned}");
+    }
+
+    /// <summary>
+    /// Asigna un nombre por defecto cuando no hay datos de autenticación
+    /// </summary>
+    private void AssignFallbackName(ulong clientId, CharacterType assigned, PlayerState playerState)
+    {
+        string playerName = $"Player_{clientId}";
+        playerState.InitializeDataServer(playerName, (int)assigned);
+        Debug.Log($"[SessionManager] Fallback aplicado - Cliente {clientId} | Nombre: '{playerName}' | Personaje: {assigned}");
+    }
 }

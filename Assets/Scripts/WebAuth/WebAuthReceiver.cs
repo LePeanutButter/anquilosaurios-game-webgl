@@ -1,0 +1,209 @@
+using UnityEngine;
+using System.Runtime.InteropServices;
+using System;
+
+/// <summary>
+/// Recibe datos de autenticación desde el navegador (Svelte frontend)
+/// y los aplica al jugador en Unity
+/// </summary>
+public class WebAuthReceiver : MonoBehaviour
+{
+    [Header("Referencias")]
+    [SerializeField] private PlayerNameDisplay playerNameDisplay;
+    
+    [Header("Estado")]
+    public string UserToken { get; private set; }
+    public string UserName { get; private set; } = "Player";
+    public string UserEmail { get; private set; }
+    public bool IsAuthenticated { get; private set; }
+
+    public static event Action<string, string, string> OnUserDataReceived;
+
+    private void Awake()
+    {
+        DontDestroyOnLoad(gameObject);
+    }
+
+    private void Start()
+    {
+        Debug.Log("[WebAuth] Esperando datos de autenticación desde el navegador...");
+        
+        SendMessageToBrowser("UNITY_READY");
+        
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        RegisterMessageListener();
+        #else
+        Debug.Log("[WebAuth] Modo Editor/Standalone - Usando datos de prueba");
+        SetUserData("test-token", "TestPlayer", "test@example.com");
+        #endif
+    }
+
+    #if UNITY_WEBGL && !UNITY_EDITOR
+    /// <summary>
+    /// Importar función JavaScript para registrar el listener
+    /// </summary>
+    [DllImport("__Internal")]
+    private static extern void RegisterUnityMessageListener();
+
+    private void RegisterMessageListener()
+    {
+        try
+        {
+            RegisterUnityMessageListener();
+            Debug.Log("[WebAuth] Listener de mensajes registrado");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[WebAuth] Error al registrar listener: {e.Message}");
+        }
+    }
+    #endif
+
+    /// <summary>
+    /// Este método es llamado desde JavaScript cuando se recibe el mensaje
+    /// IMPORTANTE: El nombre debe coincidir con el que se usa en el jslib
+    /// </summary>
+    public void ReceiveUserData(string jsonData)
+    {
+        Debug.Log($"[WebAuth] Datos recibidos: {jsonData}");
+
+        try
+        {
+            UserAuthData data = ParseUserAuthData(jsonData);
+
+            if (data != null)
+            {
+                SetUserData(data.token, data.userName, data.userEmail);
+                
+                SendMessageToBrowser("USER_DATA_RECEIVED");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[WebAuth] Error al procesar datos: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Parsear JSON manualmente (simple parser)
+    /// </summary>
+    private UserAuthData ParseUserAuthData(string json)
+    {
+        try
+        {
+            json = json.Trim('{', '}');
+            var pairs = json.Split(',');
+            
+            UserAuthData data = new UserAuthData();
+            
+            foreach (var pair in pairs)
+            {
+                var keyValue = pair.Split(':');
+                if (keyValue.Length != 2) continue;
+                
+                string key = keyValue[0].Trim().Trim('"');
+                string value = keyValue[1].Trim().Trim('"');
+                
+                switch (key)
+                {
+                    case "token":
+                        data.token = value;
+                        break;
+                    case "userName":
+                        data.userName = value;
+                        break;
+                    case "userEmail":
+                        data.userEmail = value;
+                        break;
+                }
+            }
+            
+            return data;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[WebAuth] Error al parsear JSON: {e.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Establecer los datos del usuario
+    /// </summary>
+    private void SetUserData(string token, string userName, string userEmail)
+    {
+        UserToken = token;
+        UserName = !string.IsNullOrEmpty(userName) ? userName : "Player";
+        UserEmail = userEmail;
+        IsAuthenticated = !string.IsNullOrEmpty(token);
+
+        Debug.Log($"[WebAuth] Usuario autenticado: {UserName} ({UserEmail})");
+
+        OnUserDataReceived?.Invoke(UserToken, UserName, UserEmail);
+
+        if (playerNameDisplay != null)
+        {
+            playerNameDisplay.SetPlayerName(UserName);
+        }
+        if (playerNameDisplay == null)
+        {
+            playerNameDisplay = FindObjectOfType<PlayerNameDisplay>();
+            if (playerNameDisplay != null)
+            {
+                playerNameDisplay.SetPlayerName(UserName);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Enviar mensaje de vuelta al navegador
+    /// </summary>
+    private void SendMessageToBrowser(string messageType)
+    {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        try
+        {
+            string message = $"{{\"type\":\"{messageType}\"}}";
+            SendMessageToParent(message);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[WebAuth] Error al enviar mensaje: {e.Message}");
+        }
+        #endif
+    }
+
+    #if UNITY_WEBGL && !UNITY_EDITOR
+    [DllImport("__Internal")]
+    private static extern void SendMessageToParent(string message);
+    #endif
+
+    /// <summary>
+    /// Método público para obtener el nombre del usuario desde otros scripts
+    /// </summary>
+    public static string GetUserName()
+    {
+        var receiver = FindObjectOfType<WebAuthReceiver>();
+        return receiver != null ? receiver.UserName : "Player";
+    }
+
+    /// <summary>
+    /// Método público para verificar si está autenticado
+    /// </summary>
+    public static bool IsUserAuthenticated()
+    {
+        var receiver = FindObjectOfType<WebAuthReceiver>();
+        return receiver != null && receiver.IsAuthenticated;
+    }
+}
+
+/// <summary>
+/// Clase para almacenar los datos del usuario
+/// </summary>
+[Serializable]
+public class UserAuthData
+{
+    public string token;
+    public string userName;
+    public string userEmail;
+}

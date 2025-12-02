@@ -119,6 +119,51 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &232826497
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 232826499}
+  - component: {fileID: 232826498}
+  m_Layer: 0
+  m_Name: WebAuthReceiver
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &232826498
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 232826497}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7046ba46b86a0844c9df9ee0be106086, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WebAuthReceiver
+  playerNameDisplay: {fileID: 0}
+--- !u!4 &232826499
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 232826497}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -777,6 +822,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Application::GameRoundManager
   ShowTopMostFoldoutHeaderGroup: 1
+  isRoundInitialized:
+    m_InternalValue: 0
   lethalPrefab: {fileID: 1339194546334648021, guid: 24258c62b656cd243b94a197556b38ae, type: 3}
   mapPrefabs:
   - {fileID: 884461902657112996, guid: 2dfd37763ccc82c4688639d9d8669bc4, type: 3}
@@ -796,6 +843,7 @@ MonoBehaviour:
   - Type: 4
     Prefab: {fileID: 2410886653998898105, guid: 41bdc379e62922941b6f29b6e5c9077d, type: 3}
   qteInputWindow: 2
+  qteTimeScale: 0.2
   timeTextHud: {fileID: 879005066}
   playerHealthHudPrefab: {fileID: 2974567720008398930, guid: c08aecab5b9d3be478599732cd5dc7f4, type: 3}
   healthHudParent: {fileID: 1231365561}
@@ -1009,3 +1057,4 @@ SceneRoots:
   - {fileID: 985981572}
   - {fileID: 1954669051}
   - {fileID: 2091415473}
+  - {fileID: 232826499}

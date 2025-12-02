@@ -1,5 +1,5 @@
 {
-    "name": "Application",
+    "name": "WebAuth",
     "references": [
         "Unity.InputSystem",
         "Unity.TextMeshPro",
@@ -8,14 +8,15 @@
         "Unity.Services.Authentication",
         "Unity.Services.Lobbies",
         "Unity.Netcode.Runtime",
-        "Unity.Collections",
-        "Enums",
-        "WebAuth"
+        "Unity.Collections"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
-    "autoReferenced": true
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }
