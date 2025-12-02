@@ -33,10 +33,14 @@ public class GameManager : MonoBehaviour
     /// Initializes button listeners when the scene starts.
     /// </summary>
     private void Start()
-    {
+{
+    if (hostButton != null)
         hostButton.onClick.AddListener(async () => await OnCreateSessionClicked());
+
+    if (joinButton != null)
         joinButton.onClick.AddListener(async () => await OnJoinClicked());
-    }
+}
+
 
     #endregion
 
