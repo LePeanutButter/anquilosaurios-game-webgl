@@ -192,7 +192,6 @@ public class SessionManager : NetworkBehaviour
         CharacterType assigned = GetUniqueCharacter();
         playerCharacterMap[clientId] = assigned;
 
-        // CAMBIO: Inicializar con nombre temporal
         string tempName = $"Player_{clientId}";
         playerState.InitializeDataServer(tempName, (int)assigned);
     
@@ -200,7 +199,6 @@ public class SessionManager : NetworkBehaviour
         Debug.Log($"[SessionManager] Esperando nombre autenticado del cliente...");
     }
 
-    // NUEVO: ServerRpc para que los clientes envíen su nombre
     [ServerRpc(RequireOwnership = false)]
     public void SetPlayerNameServerRpc(string playerName, ServerRpcParams rpcParams = default)
     {
@@ -215,7 +213,6 @@ public class SessionManager : NetworkBehaviour
             return;
         }
 
-        // Actualizar solo el nombre, mantener el personaje
         playerState.PlayerName.Value = playerName;
     
         Debug.Log($"[SessionManager] Nombre actualizado para cliente {clientId}: '{playerName}'");
@@ -444,8 +441,6 @@ public class SessionManager : NetworkBehaviour
 
     #endregion
 
-    // ============ AGREGAR ESTOS 2 MÉTODOS AQUÍ ============
-
     /// <summary>
     /// Coroutine que espera a que WebAuthReceiver tenga datos antes de asignar el nombre
     /// </summary>
@@ -457,7 +452,6 @@ public class SessionManager : NetworkBehaviour
         float searchTime = 0f;
         float maxSearchTime = 2f;
         
-        // Buscar WebAuthReceiver (puede tardar en crearse)
         while (webAuthReceiver == null && searchTime < maxSearchTime)
         {
             webAuthReceiver = FindObjectOfType<WebAuthReceiver>();
@@ -477,7 +471,6 @@ public class SessionManager : NetworkBehaviour
         
         Debug.Log($"[SessionManager] WebAuthReceiver encontrado, esperando autenticación...");
         
-        // Esperar a que tenga datos de autenticación (máximo 5 segundos)
         float waitTime = 0f;
         float maxWaitTime = 5f;
         
@@ -486,13 +479,12 @@ public class SessionManager : NetworkBehaviour
             yield return new WaitForSeconds(0.1f);
             waitTime += 0.1f;
             
-            if (waitTime % 1f < 0.15f) // Log cada segundo
+            if (waitTime % 1f < 0.15f)
             {
                 Debug.Log($"[SessionManager] Esperando autenticación... ({waitTime:F1}s / {maxWaitTime}s)");
             }
         }
         
-        // Asignar nombre
         string playerName;
         
         if (webAuthReceiver.IsAuthenticated && 
@@ -508,7 +500,6 @@ public class SessionManager : NetworkBehaviour
             Debug.Log($"[SessionManager] Timeout, usando fallback: {playerName}");
         }
         
-        // Inicializar PlayerState con el nombre
         playerState.InitializeDataServer(playerName, (int)assigned);
         Debug.Log($"[SessionManager] PlayerState inicializado - Cliente {clientId} | Nombre: '{playerName}' | Personaje: {assigned}");
     }

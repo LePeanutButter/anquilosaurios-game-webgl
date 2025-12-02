@@ -34,8 +34,7 @@ public class WebAuthReceiver : MonoBehaviour
         #if UNITY_WEBGL && !UNITY_EDITOR
         RegisterMessageListener();
         #else
-        Debug.Log("[WebAuth] Modo Editor/Standalone - Usando datos de prueba");
-        SetUserData("test-token", "TestPlayer", "test@example.com");
+        Debug.Log("[WebAuth] Modo Editor/Standalone - Usuario anónimo");
         #endif
     }
 
@@ -71,8 +70,14 @@ public class WebAuthReceiver : MonoBehaviour
                 
                 SendMessageToBrowser("USER_DATA_RECEIVED");
                 
-                // NUEVO: Enviar nombre al servidor inmediatamente
-                SendNameToServer();
+                if (IsAuthenticated && !string.IsNullOrEmpty(UserToken))
+                {
+                    SendNameToServer();
+                }
+                else
+                {
+                    Debug.Log("[WebAuth] Usuario anónimo detectado, servidor asignará nombre automático");
+                }
             }
         }
         catch (Exception e)
@@ -126,9 +131,10 @@ public class WebAuthReceiver : MonoBehaviour
         UserToken = token;
         UserName = !string.IsNullOrEmpty(userName) ? userName : "Player";
         UserEmail = userEmail;
-        IsAuthenticated = !string.IsNullOrEmpty(token);
+        
+        IsAuthenticated = !string.IsNullOrEmpty(token) && token != "null";
 
-        Debug.Log($"[WebAuth] Usuario autenticado: {UserName} ({UserEmail})");
+        Debug.Log($"[WebAuth] Datos procesados - Autenticado: {IsAuthenticated} | Nombre: {UserName} | Email: {UserEmail}");
 
         OnUserDataReceived?.Invoke(UserToken, UserName, UserEmail);
 
@@ -146,10 +152,8 @@ public class WebAuthReceiver : MonoBehaviour
         }
     }
 
-    // NUEVO MÉTODO: Enviar nombre al servidor
     private void SendNameToServer()
     {
-        // Esperar hasta que NetworkManager esté listo
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsConnectedClient)
         {
             Debug.Log("[WebAuth] NetworkManager no está listo, esperando...");
