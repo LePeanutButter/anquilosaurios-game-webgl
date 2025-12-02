@@ -61,7 +61,7 @@ public class GameManagerTests
     public void OnJoinClicked_WithEmptyCode_DoesNotAttemptJoin()
     {
         gameManager.GetType().GetMethod("Start", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.Invoke(gameManager, null);
-        sessionCodeInput.text = ""; 
+        sessionCodeInput.text = "";
 
         joinButton.onClick.Invoke();
 
@@ -89,7 +89,7 @@ public class GameManagerTests
         hostButton.onClick.Invoke();
 
 
-        yield return null; 
+        yield return null;
         Assert.IsNotNull(gameManager, "GameManager debe existir después de iniciar creación de sesión");
     }
 
