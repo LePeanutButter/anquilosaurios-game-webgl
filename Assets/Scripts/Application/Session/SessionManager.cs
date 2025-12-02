@@ -192,8 +192,33 @@ public class SessionManager : NetworkBehaviour
         CharacterType assigned = GetUniqueCharacter();
         playerCharacterMap[clientId] = assigned;
 
-        // Usar coroutine para esperar autenticación
-        StartCoroutine(WaitForAuthAndAssignName(clientId, assigned, playerState));
+        // CAMBIO: Inicializar con nombre temporal
+        string tempName = $"Player_{clientId}";
+        playerState.InitializeDataServer(tempName, (int)assigned);
+    
+        Debug.Log($"[SessionManager] Cliente {clientId} asignado temporalmente como '{tempName}' | Personaje: {assigned}");
+        Debug.Log($"[SessionManager] Esperando nombre autenticado del cliente...");
+    }
+
+    // NUEVO: ServerRpc para que los clientes envíen su nombre
+    [ServerRpc(RequireOwnership = false)]
+    public void SetPlayerNameServerRpc(string playerName, ServerRpcParams rpcParams = default)
+    {
+        if (!IsServer) return;
+
+        ulong clientId = rpcParams.Receive.SenderClientId;
+    
+        var playerState = GetPlayerStateForClient(clientId);
+        if (playerState == null)
+        {
+            Debug.LogError($"[SessionManager] No se encontró PlayerState para cliente {clientId}");
+            return;
+        }
+
+        // Actualizar solo el nombre, mantener el personaje
+        playerState.PlayerName.Value = playerName;
+    
+        Debug.Log($"[SessionManager] Nombre actualizado para cliente {clientId}: '{playerName}'");
     }
 
     /// <summary>

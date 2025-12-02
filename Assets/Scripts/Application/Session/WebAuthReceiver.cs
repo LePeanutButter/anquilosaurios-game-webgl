@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Runtime.InteropServices;
 using System;
+using Unity.Netcode;
 
 /// <summary>
 /// Recibe datos de autenticación desde el navegador (Svelte frontend)
@@ -39,9 +40,6 @@ public class WebAuthReceiver : MonoBehaviour
     }
 
     #if UNITY_WEBGL && !UNITY_EDITOR
-    /// <summary>
-    /// Importar función JavaScript para registrar el listener
-    /// </summary>
     [DllImport("__Internal")]
     private static extern void RegisterUnityMessageListener();
 
@@ -59,10 +57,6 @@ public class WebAuthReceiver : MonoBehaviour
     }
     #endif
 
-    /// <summary>
-    /// Este método es llamado desde JavaScript cuando se recibe el mensaje
-    /// IMPORTANTE: El nombre debe coincidir con el que se usa en el jslib
-    /// </summary>
     public void ReceiveUserData(string jsonData)
     {
         Debug.Log($"[WebAuth] Datos recibidos: {jsonData}");
@@ -76,6 +70,9 @@ public class WebAuthReceiver : MonoBehaviour
                 SetUserData(data.token, data.userName, data.userEmail);
                 
                 SendMessageToBrowser("USER_DATA_RECEIVED");
+                
+                // NUEVO: Enviar nombre al servidor inmediatamente
+                SendNameToServer();
             }
         }
         catch (Exception e)
@@ -84,9 +81,6 @@ public class WebAuthReceiver : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Parsear JSON manualmente (simple parser)
-    /// </summary>
     private UserAuthData ParseUserAuthData(string json)
     {
         try
@@ -127,9 +121,6 @@ public class WebAuthReceiver : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Establecer los datos del usuario
-    /// </summary>
     private void SetUserData(string token, string userName, string userEmail)
     {
         UserToken = token;
@@ -145,7 +136,7 @@ public class WebAuthReceiver : MonoBehaviour
         {
             playerNameDisplay.SetPlayerName(UserName);
         }
-        if (playerNameDisplay == null)
+        else
         {
             playerNameDisplay = FindObjectOfType<PlayerNameDisplay>();
             if (playerNameDisplay != null)
@@ -155,9 +146,45 @@ public class WebAuthReceiver : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Enviar mensaje de vuelta al navegador
-    /// </summary>
+    // NUEVO MÉTODO: Enviar nombre al servidor
+    private void SendNameToServer()
+    {
+        // Esperar hasta que NetworkManager esté listo
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsConnectedClient)
+        {
+            Debug.Log("[WebAuth] NetworkManager no está listo, esperando...");
+            StartCoroutine(WaitAndSendName());
+            return;
+        }
+
+        if (SessionManager.Instance != null)
+        {
+            Debug.Log($"[WebAuth] Enviando nombre '{UserName}' al servidor");
+            SessionManager.Instance.SetPlayerNameServerRpc(UserName);
+        }
+    }
+
+    private System.Collections.IEnumerator WaitAndSendName()
+    {
+        float timeout = 10f;
+        float elapsed = 0f;
+
+        while ((NetworkManager.Singleton == null || !NetworkManager.Singleton.IsConnectedClient) && elapsed < timeout)
+        {
+            yield return new WaitForSeconds(0.5f);
+            elapsed += 0.5f;
+        }
+
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsConnectedClient)
+        {
+            SendNameToServer();
+        }
+        else
+        {
+            Debug.LogError("[WebAuth] Timeout esperando NetworkManager");
+        }
+    }
+
     private void SendMessageToBrowser(string messageType)
     {
         #if UNITY_WEBGL && !UNITY_EDITOR
@@ -178,18 +205,12 @@ public class WebAuthReceiver : MonoBehaviour
     private static extern void SendMessageToParent(string message);
     #endif
 
-    /// <summary>
-    /// Método público para obtener el nombre del usuario desde otros scripts
-    /// </summary>
     public static string GetUserName()
     {
         var receiver = FindObjectOfType<WebAuthReceiver>();
         return receiver != null ? receiver.UserName : "Player";
     }
 
-    /// <summary>
-    /// Método público para verificar si está autenticado
-    /// </summary>
     public static bool IsUserAuthenticated()
     {
         var receiver = FindObjectOfType<WebAuthReceiver>();
@@ -197,9 +218,6 @@ public class WebAuthReceiver : MonoBehaviour
     }
 }
 
-/// <summary>
-/// Clase para almacenar los datos del usuario
-/// </summary>
 [Serializable]
 public class UserAuthData
 {
