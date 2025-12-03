@@ -53,6 +53,29 @@ public class AudioManagerTests
     }
 
     [Test]
+    public void Awake_PreventsDuplicateSingletons()
+    {
+        var originalInstance = audioManager;
+
+        // Llamamos Awake la primera vez
+        audioManager.GetType()
+            .GetMethod("Awake", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            ?.Invoke(audioManager, null);
+
+        Assert.AreEqual(originalInstance, AudioManager.Instance, "Debe inicializar la instancia correctamente");
+
+        // Creamos un "segundo" AudioManager para simular duplicado
+        var duplicate = new GameObject().AddComponent<AudioManager>();
+
+        duplicate.GetType()
+            .GetMethod("Awake", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            ?.Invoke(duplicate, null);
+
+        // Verificamos que la instancia siga siendo la original
+        Assert.AreEqual(originalInstance, AudioManager.Instance, "La instancia original no debe ser reemplazada");
+    }
+
+    [Test]
     public void PlaySFX_WithValidClip_DoesNotThrowException()
     {
         audioManager.GetType().GetMethod("Awake", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.Invoke(audioManager, null);

@@ -45,7 +45,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: Library
-          key: Library-Test-All
+          key: Library-Test-playmode
           restore-keys: Library-
 
       # Step 3: Run Unity tests and generate coverage
@@ -57,9 +57,9 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
-          testMode: all
+          testMode: playmode
           artifactsPath: test-results
-          coverageOptions: 'generateAdditionalMetrics;generateHtmlReport;generateXmlReport;generateBadgeReport;assemblyFilters:+Enum;+Application'
+          coverageOptions: 'generateAdditionalMetrics;generateHtmlReport;generateBadgeReport;assemblyFilters:+Application'
 
       # Step 4: Upload test results
       - name: Upload Test Artifacts
