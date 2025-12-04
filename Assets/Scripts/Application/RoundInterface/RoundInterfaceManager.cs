@@ -217,7 +217,7 @@ public class RoundInterfaceManager : NetworkBehaviour
     public void UpdateCountdown(int seconds)
     {
         if (countdownText != null)
-            countdownText.text = seconds > 0 ? $"Listo en {seconds}" : "¡Vamos!";
+            countdownText.text = seconds > 0 ? $"Listo en {seconds}" : "Â¡Vamos!";
     }
 
     /// <summary>
