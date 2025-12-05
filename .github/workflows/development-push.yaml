@@ -57,7 +57,8 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
-          targetPlatform: ${{ matrix.targetPlatform }}
+          targetPlatform: StandaloneWindows64
+          allowDirtyBuild: true
 
       # Step 4: Consolidate and prepare wwwroot folder 
       - name: Prepare wwwroot folder (Move Build)
