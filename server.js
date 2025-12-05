@@ -189,7 +189,7 @@ app.use(express.static(BUILD_PATH, {
 /**
  * Health check endpoint to verify server status and manifest loading
  */
-app.get('/health', (req, res) => {
+app.get('/play/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
