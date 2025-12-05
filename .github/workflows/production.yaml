@@ -25,22 +25,6 @@ on:
 # Jobs Definition
 # -------------------------------------------
 jobs:
-  free-disk-space:
-    runs-on: ubuntu-latest
-    steps:
-
-    - name: Free Disk Space (Ubuntu)
-      uses: jlumbroso/free-disk-space@main
-      with:
-        tool-cache: false
-        
-        android: true
-        dotnet: true
-        haskell: true
-        large-packages: true
-        docker-images: true
-        swap-storage: true
-        
   # =========================================
   # Job: Dynamic Analysis (Tests + Coverage)
   # Purpose: Run Unity tests and generate coverage for SonarCloud
@@ -148,7 +132,6 @@ jobs:
   # =========================================
   build:
     name: Build for WebGL
-    needs: sonar_scan
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -330,7 +313,7 @@ jobs:
   push_to_acr:
     if: github.event_name == 'push'
     name: Push Docker Image to ACR
-    needs: trivy_scan
+    needs: [trivy_scan, sonar_scan]
     runs-on: ubuntu-latest
     steps:
       # Step 1: Checkout repository
