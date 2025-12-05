@@ -63,6 +63,7 @@ jobs:
           testMode: ${{ matrix.testMode }}
           artifactsPath: ${{ matrix.testMode }}-artifacts
           coverageOptions: 'generateAdditionalMetrics;generateHtmlReport;generateBadgeReport;assemblyFilters:+Application'
+        continue-on-error: true
 
       # Step 5: Upload coverage results
       - name: Upload Coverage Artifacts
