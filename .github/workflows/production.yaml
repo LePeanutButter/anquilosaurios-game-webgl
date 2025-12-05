@@ -180,16 +180,10 @@ jobs:
       # Step 4: Consolidate and prepare wwwroot folder 
       - name: Prepare wwwroot folder (Move Build)
         run: |
-          if [ -d build/${{ matrix.targetPlatform }} ]; then
-            echo "Flattening nested WebGL directory..."
-            mv build/${{ matrix.targetPlatform }}/* build/ || true
-            rm -rf build/${{ matrix.targetPlatform }} || true
-          fi
-
           mkdir -p site/wwwroot/webgl
 
           echo "Copying contents from build/${{ matrix.targetPlatform }} to site/wwwroot/webgl..."
-          cp -r build/* site/wwwroot/webgl
+          cp -r build/${{ matrix.targetPlatform }}/* site/wwwroot/webgl
 
           echo "site/wwwroot/webgl listing (first 50 entries):"
           find site/wwwroot/webgl | head -n 50
