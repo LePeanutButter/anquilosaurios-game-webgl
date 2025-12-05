@@ -120,7 +120,7 @@ app.use((req, res, next) => {
  * @param {express.Response} res - The response object used to set headers.
  * @param {express.NextFunction} next - Callback to pass control to the next middleware.
  */
-app.get('*.br', (req, res, next) => {
+app.get('/play/*.br', (req, res, next) => {
     if (req.url.endsWith('.data.br')) {
         res.set('Content-Type', 'application/octet-stream');
     } else if (req.url.endsWith('.wasm.br')) {
@@ -141,7 +141,7 @@ app.get('*.br', (req, res, next) => {
  * @param {express.Response} res - The response object used to set headers.
  * @param {express.NextFunction} next - Callback to pass control to the next middleware.
  */
-app.get('*.gz', (req, res, next) => {
+app.get('/play/*.gz', (req, res, next) => {
     if (req.url.endsWith('.data.gz')) {
         res.set('Content-Type', 'application/octet-stream');
     } else if (req.url.endsWith('.js.gz')) {
@@ -152,7 +152,7 @@ app.get('*.gz', (req, res, next) => {
     next();
 });
 
-app.get('/webgl-manifest.json', (req, res) => {
+app.get('/play/webgl-manifest.json', (req, res) => {
   if (Object.keys(webglManifest.files || {}).length === 0) {
     return res.status(503).json({
       error: 'Manifest not available',
@@ -174,7 +174,7 @@ app.get('/webgl-manifest.json', (req, res) => {
  * @param {string} path - The file path being served.
  * @param {object} stat - File statistics object.
  */
-app.use(express.static(BUILD_PATH, {
+app.use('/play', express.static(BUILD_PATH, {
     setHeaders: (res, path, stat) => {
         if (path.endsWith('.unityweb') || path.endsWith('.br') || path.endsWith('.gz') || path.endsWith('.js') || path.endsWith('.wasm')) {
             res.set('Cache-Control', 'public, max-age=31536000, immutable');

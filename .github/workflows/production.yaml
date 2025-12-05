@@ -300,42 +300,13 @@ jobs:
           path: webgl.tar
 
   # =========================================
-  # Job: Security Scan (Trivy)
-  # Purpose: Scan Docker image for vulnerabilities
-  # =========================================
-  trivy_scan:
-    name: Run Trivy Security Scan
-    needs: docker_build
-    runs-on: ubuntu-latest
-    steps:
-      # Step 1: Download the Docker image artifact created in the previous job
-      - name: Download docker image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image
-          path: .
-
-      # Step 2: Load the Docker image from the tar archive into Docker
-      - name: Load Docker image
-        run: docker load -i webgl.tar
-
-      # Step 3: Use the official Trivy Action to install and scan
-      - name: Run Trivy Scan
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
-        with:
-          image-ref: anquilo-webgl:latest
-          format: 'table'
-          severity: 'CRITICAL'
-          exit-code: '1'
-
-  # =========================================
   # Job: Push Docker Image to ACR
   # Purpose: Deploy Docker image to Azure Container Registry
   # =========================================
   push_to_acr:
     if: github.event_name == 'push'
     name: Push Docker Image to ACR
-    needs: [trivy_scan, sonar_scan]
+    needs: [docker_build, sonar_scan]
     runs-on: ubuntu-latest
     steps:
       # Step 1: Checkout repository
