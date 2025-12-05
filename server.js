@@ -4,20 +4,19 @@
  * It sets appropriate Content-Type and Content-Encoding headers, and applies caching strategies for static assets.
  * Additionally, it implements Content Security Policy (CSP) with SHA-256 hashes for WebGL files.
  */
-require('dotenv').config();
-
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 const app = express();
 
-const FRONT_ORIGIN = process.env.FRONT_ORIGIN;
 const PORT = process.env.PORT || 8080;
 const BUILD_PATH = path.join(__dirname, 'webgl');
 
-const ALLOWED_ORIGINS = FRONT_ORIGIN 
-  ? FRONT_ORIGIN.split(',').map(origin => origin.trim())
-  : [];
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'https://anquilosaurios-development-frontend-bwcbgzf6byefdthz.eastus-01.azurewebsites.net',
+  'http://20.168.245.216'
+];
 
 // Load the WebGL manifest with file hashes
 let webglManifest = {};
@@ -49,9 +48,7 @@ function getFileHash(requestPath) {
     filePath = filePath.substring(6);
   }
   
-  if (filePath.endsWith('.br')) {
-    filePath = filePath.slice(0, -3);
-  } else if (filePath.endsWith('.gz')) {
+  if (filePath.endsWith('.br') || filePath.endsWith('.gz')) {
     filePath = filePath.slice(0, -3);
   }
   
@@ -156,15 +153,13 @@ app.get('*.gz', (req, res, next) => {
 });
 
 app.get('/webgl-manifest.json', (req, res) => {
-  // Validación: si el manifest está vacío, retorna error
   if (Object.keys(webglManifest.files || {}).length === 0) {
     return res.status(503).json({
       error: 'Manifest not available',
       message: 'The integrity manifest has not been loaded or is empty'
     });
-  }
+  };
   
-  // Si todo está bien, retorna el manifest
   res.json(webglManifest);
 });
 

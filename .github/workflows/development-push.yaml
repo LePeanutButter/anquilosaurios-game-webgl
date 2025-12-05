@@ -1,0 +1,171 @@
+# ===========================================
+# GitHub Actions Workflow: CI Build & Deploy
+# Environment: Development
+# Description:
+#   - Builds and deploys the Power Garden: Juicy Brawl! Unity WebGL game
+#   - Runs on every push to 'development'
+# ===========================================
+
+name: CI Build & Deploy (Power Garden - development)
+
+# -------------------------------------------
+# Trigger: Run workflow on push to 'development' branch
+# -------------------------------------------
+on:
+  push:
+    branches:
+      - development
+
+# -------------------------------------------
+# Jobs Definition
+# -------------------------------------------
+jobs:
+  # =========================================
+  # Job: Build Stage
+  # Purpose: Build Unity WebGL game
+  # =========================================
+  build:
+    name: Build for WebGL
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        targetPlatform:
+          - WebGL
+    steps:
+      # Step 1: Checkout source code from repository
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      # Step 2: Cache Unity Library to speed up builds
+      - name: Cache Unity Library
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-${{ matrix.targetPlatform }}-${{ hashFiles('Assets/**', 'Packages/**') }} 
+          restore-keys: Library-${{ matrix.targetPlatform }}-
+                        Library-
+
+      # Step 3: Free disk space
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+
+      # Step 4: Build Unity project using GameCI
+      - name: Build Unity Project
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: ${{ matrix.targetPlatform }}
+
+      # Step 5: Consolidate and prepare wwwroot folder 
+      - name: Prepare wwwroot folder (Move Build)
+        run: |
+          mkdir -p site/wwwroot/webgl
+
+          echo "Copying contents from build/${{ matrix.targetPlatform }} to site/wwwroot/webgl..."
+          cp -r build/${{ matrix.targetPlatform }}/* site/wwwroot/webgl/
+
+          echo "site/wwwroot/webgl listing (first 50 entries):"
+          find site/wwwroot/webgl | head -n 50
+
+
+      # Step 6: Generate SHA-256 hashes for WebGL files
+      - name: Generate SHA-256 hashes and create manifest
+        shell: bash
+        run: |
+          MANIFEST_FILE="site/wwwroot/webgl-manifest.json"
+          
+          echo "Generating SHA-256 hashes for WebGL files..."
+          
+          echo "{" > "$MANIFEST_FILE"
+          echo '  "files": {' >> "$MANIFEST_FILE"
+          
+          FIRST=true
+          find site/wwwroot/webgl -type f \( -name "*.js" -o -name "*.wasm" -o -name "*.data" -o -name "*.unityweb" \) | while read FILE; do
+            RELATIVE_PATH=$(echo "$FILE" | sed 's|site/wwwroot/webgl/||')
+            
+            HASH=$(sha256sum "$FILE" | awk '{print $1}')
+            
+            if [ "$FIRST" = true ]; then
+              FIRST=false
+            else
+              echo "," >> "$MANIFEST_FILE"
+            fi
+            
+            echo -n "    \"$RELATIVE_PATH\": \"sha256-$HASH\"" >> "$MANIFEST_FILE"
+            
+            echo "Generated hash for: $RELATIVE_PATH"
+          done
+          
+          echo "" >> "$MANIFEST_FILE"
+          echo "  }" >> "$MANIFEST_FILE"
+          echo "}" >> "$MANIFEST_FILE"
+          
+          echo "Manifest created:"
+          cat "$MANIFEST_FILE"
+
+      # Step 7: Copy Server Files to Deployment Package
+      - name: Copy Server Files to Deployment Package
+        run: |
+          cp package.json site/wwwroot
+          cp server.js site/wwwroot
+          
+      # Step 8: Setup Node.js and Install Dependencies
+      - name: Install Node.js Dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm install --prefix site/wwwroot/
+
+      # Step 9: Upload Build Artifacts for deploy
+      - name: Upload Deployment Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Deployment-Package-${{ matrix.targetPlatform }}
+          path: site/wwwroot
+
+  # =========================================
+  # Job: Deploy Stage
+  # Purpose: Deploy Unity WebGL to Azure Web App
+  # Depends on: build
+  # =========================================
+  deploy:
+    name: Deploy WebGL to Azure Web App
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      # Step 1: Download WebGL build artifacts from previous job
+      - name: Download WebGL Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Deployment-Package-WebGL 
+          path: site/wwwroot
+
+      # Step 2: Login to Azure using service principal credentials
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Step 3: Deploy the WebGL build to Azure Web App
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'anquilosaurios-development-webgl'
+          slot-name: 'Production'
+          package: site/wwwroot
+
+      # Step 4: Logout from Azure to clean up session
+      - name: Logout from Azure
+        run: az logout

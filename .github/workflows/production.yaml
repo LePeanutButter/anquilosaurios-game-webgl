@@ -154,8 +154,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: Library
-          key: Library-${{ matrix.targetPlatform }}
-          restore-keys: Library-
+          key: Library-${{ matrix.targetPlatform }}-${{ hashFiles('Assets/**', 'Packages/**') }} 
+          restore-keys: Library-${{ matrix.targetPlatform }}-
+                        Library-
 
       # Step 3: Free disk space
       - name: Free disk space
@@ -171,123 +172,178 @@ jobs:
         with:
           targetPlatform: ${{ matrix.targetPlatform }}
 
-      # Step 5: Upload Build Artifacts for deploy
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Build-${{ matrix.targetPlatform }}
-          path: build/${{ matrix.targetPlatform }}
-
-  # =========================================
-  # Job: Deploy Stage
-  # Purpose: Deploy Unity WebGL to Azure Web App
-  # Depends on: build
-  # =========================================
-  deploy:
-    if: github.event_name == 'push'
-    name: Deploy WebGL to Azure Web App
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - name: Checkout project
-        uses: actions/checkout@v4
-
-      # Step 1: Download WebGL build artifacts from previous job
-      - name: Download WebGL Build Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: Build-WebGL
-          path: build
-
-      # Step 2: Prepare wwwroot folder for Azure
-      - name: Prepare wwwroot folder for Azure
+      # Step 5: Consolidate and prepare wwwroot folder 
+      - name: Prepare wwwroot folder (Move Build)
         run: |
-          echo "Checking build contents:"
-          ls -la build || true
-
-          if [ -d build/WebGL ]; then
-            echo "Flattening nested WebGL directory..."
-            mv build/WebGL/* build/ || true
-            rm -rf build/WebGL || true
-          fi
-
           mkdir -p site/wwwroot/webgl
 
-          cp -r build/* site/wwwroot/webgl
+          echo "Copying contents from build/${{ matrix.targetPlatform }} to site/wwwroot/webgl..."
+          cp -r build/${{ matrix.targetPlatform }}/* site/wwwroot/webgl/
 
           echo "site/wwwroot/webgl listing (first 50 entries):"
           find site/wwwroot/webgl | head -n 50
 
-      # Step 3: Generate SHA-256 hashes for WebGL files
+
+      # Step 6: Generate SHA-256 hashes for WebGL files
       - name: Generate SHA-256 hashes and create manifest
+        shell: bash
         run: |
+          MANIFEST_FILE="site/wwwroot/webgl-manifest.json"
+          
           echo "Generating SHA-256 hashes for WebGL files..."
           
-          # Create manifest.json with hashes
-          echo "{" > site/wwwroot/webgl-manifest.json
-          echo '  "files": {' >> site/wwwroot/webgl-manifest.json
+          echo "{" > "$MANIFEST_FILE"
+          echo '  "files": {' >> "$MANIFEST_FILE"
           
-          first=true
-          find site/wwwroot/webgl -type f \( -name "*.js" -o -name "*.wasm" -o -name "*.data" -o -name "*.unityweb" \) | while read file; do
-            # Get relative path from webgl directory
-            relative_path=$(echo "$file" | sed 's|site/wwwroot/webgl/||')
+          FIRST=true
+          find site/wwwroot/webgl -type f \( -name "*.js" -o -name "*.wasm" -o -name "*.data" -o -name "*.unityweb" \) | while read FILE; do
+            RELATIVE_PATH=$(echo "$FILE" | sed 's|site/wwwroot/webgl/||')
             
-            # Calculate SHA-256 hash
-            hash=$(sha256sum "$file" | awk '{print $1}')
+            HASH=$(sha256sum "$FILE" | awk '{print $1}')
             
-            # Add comma if not first entry
-            if [ "$first" = true ]; then
-              first=false
+            if [ "$FIRST" = true ]; then
+              FIRST=false
             else
-              echo "," >> site/wwwroot/webgl-manifest.json
+              echo "," >> "$MANIFEST_FILE"
             fi
             
-            # Add entry to manifest
-            echo -n "    \"$relative_path\": \"sha256-$hash\"" >> site/wwwroot/webgl-manifest.json
+            echo -n "    \"$RELATIVE_PATH\": \"sha256-$HASH\"" >> "$MANIFEST_FILE"
             
-            echo "Generated hash for: $relative_path"
+            echo "Generated hash for: $RELATIVE_PATH"
           done
           
-          echo "" >> site/wwwroot/webgl-manifest.json
-          echo "  }" >> site/wwwroot/webgl-manifest.json
-          echo "}" >> site/wwwroot/webgl-manifest.json
+          echo "" >> "$MANIFEST_FILE"
+          echo "  }" >> "$MANIFEST_FILE"
+          echo "}" >> "$MANIFEST_FILE"
           
           echo "Manifest created:"
-          cat site/wwwroot/webgl-manifest.json
+          cat "$MANIFEST_FILE"
 
-      # Step 4: Copy Files from Server to the Root of the Deployment Package
+      # Step 7: Copy Server Files to Deployment Package
       - name: Copy Server Files to Deployment Package
         run: |
           cp package.json site/wwwroot
           cp server.js site/wwwroot
           
-      # Step 5: Install Node.js Dependencies
+      # Step 8: Setup Node.js and Install Dependencies
       - name: Install Node.js Dependencies
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+      
       - name: Install dependencies
         run: npm install --prefix site/wwwroot/
 
-      # Step 6: Login to Azure using service principal credentials
-      - name: Login to Azure
-        uses: azure/login@v2
+      # Step 9: Upload Build Artifacts for deploy
+      - name: Upload Deployment Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_B8B484A3264B4FAB942BAF517C708529 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_8F216CF2383D45149E7568ECF96FA6D4 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_2373CA70EE1D4BC08D99AF2269BE356D }}
+          name: Deployment-Package-${{ matrix.targetPlatform }}
+          path: site/wwwroot
 
-      # Step 7: Deploy the WebGL build to Azure Web App
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
+  # =========================================
+  # Job: Build Docker Image
+  # Purpose: Build Docker image from the webgl build artifacts
+  # =========================================
+  docker_build:
+    name: Build Docker Image using CI build
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout the repository to access Dockerfile and context
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Download the webgl build artifacts from the previous build job
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
         with:
-          app-name: 'anquilosaurios-production-webgl'
-          slot-name: 'Production'
-          package: site/wwwroot
+          name: Deployment-Package-${{ matrix.targetPlatform }}
+          path: site/wwwroot
 
-      # Step 8: Logout from Azure to clean up session
-      - name: Logout from Azure
-        run: az logout
+      # Step 3: Build Docker image using the downloaded build artifacts
+      - name: Build Docker Image
+        run: docker build -t anquilo-webgl:latest .
+
+      # Step 4: Save the Docker image as a tar archive for artifact storage
+      - name: Save Docker Image
+        run: docker save anquilo-webgl -o webgl.tar
+
+      # Step 5: Upload the saved Docker image tarball as a workflow artifact
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: webgl.tar
+
+  # =========================================
+  # Job: Security Scan (Trivy)
+  # Purpose: Scan Docker image for vulnerabilities
+  # =========================================
+  trivy_scan:
+    name: Run Trivy Security Scan
+    needs: docker_build
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Download the Docker image artifact created in the previous job
+      - name: Download docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: .
+
+      # Step 2: Load the Docker image from the tar archive into Docker
+      - name: Load Docker image
+        run: docker load -i webgl.tar
+
+      # Step 3: Use the official Trivy Action to install and scan
+      - name: Run Trivy Scan
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        with:
+          image-ref: anquilo-webgl:latest
+          format: 'table'
+          severity: 'CRITICAL'
+          exit-code: '1'
+
+  # =========================================
+  # Job: Push Docker Image to ACR
+  # Purpose: Deploy Docker image to Azure Container Registry
+  # =========================================
+  push_to_acr:
+    if: github.event_name == 'push'
+    name: Push Docker Image to ACR
+    needs: trivy_scan
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Download Docker image artifact from previous job
+      - uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: .
+
+      # Step 3: Load the Docker image from the tar archive
+      - name: Load Docker image
+        run: docker load -i webgl.tar
+
+      # Step 4: Log in to Azure using a service principal from secrets
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Step 5: Log in to Azure Container Registry (ACR)
+      - name: ACR Login
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      # Step 6: Tag Docker image for pushing to ACR
+      - name: Tag Image for ACR
+        run: |
+          docker tag anquilo-webgl:latest ${{ secrets.ACR_NAME }}.azurecr.io/unity-webgl:latest
+
+      # Step 7: Push the Docker image to ACR
+      - name: Push to ACR
+        run: docker push ${{ secrets.ACR_NAME }}.azurecr.io/unity-webgl:latest
