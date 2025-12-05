@@ -37,6 +37,7 @@ jobs:
         large-packages: true
         docker-images: true
         swap-storage: true
+        
   # =========================================
   # Job: Dynamic Analysis (Tests + Coverage)
   # Purpose: Run Unity tests and generate coverage for SonarCloud
