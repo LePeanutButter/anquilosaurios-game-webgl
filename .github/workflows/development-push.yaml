@@ -65,8 +65,8 @@ jobs:
         run: |
           mkdir -p site/wwwroot/webgl
 
-          echo "Copying contents from build/${{ matrix.targetPlatform }} to site/wwwroot/webgl..."
-          cp -r build/${{ matrix.targetPlatform }}/* site/wwwroot/webgl/
+          echo "Copying contents from build/StandaloneWindows64 to site/wwwroot/webgl..."
+          cp -r build/StandaloneWindows64/* site/wwwroot/webgl/
 
           echo "site/wwwroot/webgl listing (first 50 entries):"
           find site/wwwroot/webgl | head -n 50
