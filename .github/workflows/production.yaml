@@ -49,9 +49,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: Library
-          key: Library-PowerGarden-${{ matrix.testMode }}
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
           restore-keys: |
-            Library-PowerGarden-
             Library-
 
       # Step 3: Run Unity tests and generate coverage
@@ -153,8 +152,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: Library
-          key: Library-${{ matrix.targetPlatform }}
-          restore-keys: Library-
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
 
       # Step 3: Build Unity project using GameCI
       - name: Build Unity Project
@@ -217,8 +217,16 @@ jobs:
         run: |
           cp package.json site/wwwroot
           cp server.js site/wwwroot
-          
-      # Step 7: Setup Node.js and Install Dependencies
+
+      # Step 7: Setup Node.js and Install Dependencies      
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Install Node.js Dependencies
         uses: actions/setup-node@v4
         with:
