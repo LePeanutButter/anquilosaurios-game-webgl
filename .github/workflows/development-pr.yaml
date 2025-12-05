@@ -1,0 +1,257 @@
+# ===========================================
+# GitHub Actions Workflow: CI Build & Deploy
+# Environment: Development
+# Description:
+#   - Runs Unity tests (dynamic analysis) and generates coverage
+#   - Performs SonarCloud static analysis
+#   - Builds the Power Garden: Juicy Brawl! Unity WebGL game
+#   - Runs on every pull request to 'development'
+# ===========================================
+
+name: CI Build & Deploy (Power Garden - development)
+
+# -------------------------------------------
+# Trigger: Run workflow on PR to 'development' branch
+# -------------------------------------------
+on:
+  pull_request:
+    branches:
+      - development
+
+# -------------------------------------------
+# Jobs Definition
+# -------------------------------------------
+jobs:
+  # =========================================
+  # Job: Dynamic Analysis (Tests + Coverage)
+  # Purpose: Run Unity tests and generate coverage for SonarCloud
+  # =========================================
+  test_and_coverage:
+    name: Unity Tests & Coverage
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        testMode:
+          - playmode
+    steps:
+      # Step 1: Checkout source code
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # Step 2: Restore Library cache
+      - name: Restore Unity Library
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
+
+      # Step 3: Run Unity tests and generate coverage
+      - name: Run Unity Tests with Coverage
+        uses: game-ci/unity-test-runner@v4
+        id: tests
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          testMode: ${{ matrix.testMode }}
+          artifactsPath: ${{ matrix.testMode }}-artifacts
+          coverageOptions: 'generateAdditionalMetrics;generateHtmlReport;generateBadgeReport;assemblyFilters:+Application'
+        continue-on-error: true
+
+      # Step 5: Upload coverage results
+      - name: Upload Coverage Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Coverage results
+          path: ${{ steps.tests.outputs.coveragePath }}
+
+  # =========================================
+  # Job: SonarCloud Scan
+  # Purpose: Run static code analysis with SonarCloud
+  # =========================================
+  sonar_scan:
+    name: Sonar Cloud static analysis
+    needs: test_and_coverage
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout source code
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      # Step 2: Install Java
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # Step 3: Cache SonarCloud packages
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      # Step 4: Download combined coverage from test job
+      - name: Download Coverage Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Coverage results
+          path: CodeCoverage
+
+      # Step 5: Show files for debugging
+      - name: List coverage files
+        run: |
+          echo "Coverage artifact content:"
+          find coverage -type f | sed 's/^/ - /'
+
+      # Step 6: Run SonarCloud analysis
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # =========================================
+  # Job: Build Stage
+  # Purpose: Build Unity WebGL game
+  # =========================================
+  build:
+    name: Build for WebGL
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        targetPlatform:
+          - WebGL
+    steps:
+      # Step 1: Checkout source code from repository
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      # Step 2: Cache Unity Library to speed up builds
+      - name: Cache Unity Library
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
+    
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+
+      # Step 3: Build Unity project using GameCI
+      - name: Build Unity Project
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: ${{ matrix.targetPlatform }}
+          allowDirtyBuild: true
+
+      # Step 4: Consolidate and prepare wwwroot folder 
+      - name: Prepare wwwroot folder (Move Build)
+        run: |
+          if [ -d build/${{ matrix.targetPlatform }} ]; then
+            echo "Flattening nested WebGL directory..."
+            mv build/${{ matrix.targetPlatform }}/* build/ || true
+            rm -rf build/${{ matrix.targetPlatform }} || true
+          fi
+
+          mkdir -p site/wwwroot/webgl
+
+          echo "Copying contents from build/${{ matrix.targetPlatform }} to site/wwwroot/webgl..."
+          cp -r build/* site/wwwroot/webgl
+
+          echo "site/wwwroot/webgl listing (first 50 entries):"
+          find site/wwwroot/webgl | head -n 50
+
+      # Step 5: Generate SHA-256 hashes for WebGL files
+      - name: Generate SHA-256 hashes and create manifest
+        shell: bash
+        run: |
+          MANIFEST_FILE="site/wwwroot/webgl-manifest.json"
+          
+          echo "Generating SHA-256 hashes for WebGL files..."
+          
+          echo "{" > "$MANIFEST_FILE"
+          echo '  "files": {' >> "$MANIFEST_FILE"
+          
+          FIRST=true
+          find site/wwwroot/webgl -type f \( -name "*.js" -o -name "*.wasm" -o -name "*.data" -o -name "*.unityweb" \) | while read FILE; do
+            RELATIVE_PATH=$(echo "$FILE" | sed 's|site/wwwroot/webgl/||')
+            
+            HASH=$(sha256sum "$FILE" | awk '{print $1}')
+            
+            if [ "$FIRST" = true ]; then
+              FIRST=false
+            else
+              echo "," >> "$MANIFEST_FILE"
+            fi
+            
+            echo -n "    \"$RELATIVE_PATH\": \"sha256-$HASH\"" >> "$MANIFEST_FILE"
+            
+            echo "Generated hash for: $RELATIVE_PATH"
+          done
+          
+          echo "" >> "$MANIFEST_FILE"
+          echo "  }" >> "$MANIFEST_FILE"
+          echo "}" >> "$MANIFEST_FILE"
+          
+          echo "Manifest created:"
+          cat "$MANIFEST_FILE"
+
+      # Step 6: Copy Server Files to Deployment Package
+      - name: Copy Server Files to Deployment Package
+        run: |
+          cp package.json site/wwwroot
+          cp server.js site/wwwroot
+
+      # Step 7: Setup Node.js and Install Dependencies      
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Node.js Dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm install --prefix site/wwwroot/
+
+      # Step 8: Upload Build Artifacts for deploy
+      - name: Upload Deployment Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Deployment-Package-${{ matrix.targetPlatform }}
+          path: site/wwwroot
