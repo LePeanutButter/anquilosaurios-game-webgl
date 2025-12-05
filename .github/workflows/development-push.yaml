@@ -45,15 +45,10 @@ jobs:
         uses: actions/cache@v3
         with:
           path: Library
-          key: Library-${{ matrix.targetPlatform }}-${{ hashFiles('Assets/**', 'Packages/**') }} 
-          restore-keys: Library-${{ matrix.targetPlatform }}-
-                        Library-
+          key: Library-${{ matrix.targetPlatform }}
+          restore-keys: Library-
 
-      # Step 3: Free disk space
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@v1.3.1
-
-      # Step 4: Build Unity project using GameCI
+      # Step 3: Build Unity project using GameCI
       - name: Build Unity Project
         uses: game-ci/unity-builder@v4
         env:
@@ -63,7 +58,7 @@ jobs:
         with:
           targetPlatform: ${{ matrix.targetPlatform }}
 
-      # Step 5: Consolidate and prepare wwwroot folder 
+      # Step 4: Consolidate and prepare wwwroot folder 
       - name: Prepare wwwroot folder (Move Build)
         run: |
           mkdir -p site/wwwroot/webgl
@@ -74,8 +69,7 @@ jobs:
           echo "site/wwwroot/webgl listing (first 50 entries):"
           find site/wwwroot/webgl | head -n 50
 
-
-      # Step 6: Generate SHA-256 hashes for WebGL files
+      # Step 5: Generate SHA-256 hashes for WebGL files
       - name: Generate SHA-256 hashes and create manifest
         shell: bash
         run: |
@@ -110,13 +104,13 @@ jobs:
           echo "Manifest created:"
           cat "$MANIFEST_FILE"
 
-      # Step 7: Copy Server Files to Deployment Package
+      # Step 6: Copy Server Files to Deployment Package
       - name: Copy Server Files to Deployment Package
         run: |
           cp package.json site/wwwroot
           cp server.js site/wwwroot
           
-      # Step 8: Setup Node.js and Install Dependencies
+      # Step 7: Setup Node.js and Install Dependencies
       - name: Install Node.js Dependencies
         uses: actions/setup-node@v4
         with:
@@ -125,7 +119,7 @@ jobs:
       - name: Install dependencies
         run: npm install --prefix site/wwwroot/
 
-      # Step 9: Upload Build Artifacts for deploy
+      # Step 8: Upload Build Artifacts for deploy
       - name: Upload Deployment Artifacts
         uses: actions/upload-artifact@v4
         with:
