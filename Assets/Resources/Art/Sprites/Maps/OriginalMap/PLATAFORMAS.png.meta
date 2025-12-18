@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: a510e4dbbbcb00349ab83611010844ec
+guid: cdabf27b6988da64aa1848064703462c
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -43,7 +43,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 1
+  spriteMode: 2
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -110,15 +110,15 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Unity-Logo_0
+      name: Watermelon
       rect:
         serializedVersion: 2
-        x: 32
-        y: 385
-        width: 1231
-        height: 1390
+        x: 0
+        y: 0
+        width: 497
+        height: 511
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -132,15 +132,15 @@ TextureImporter:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Unity-Logo_1
+      name: Platform1
       rect:
         serializedVersion: 2
-        x: 1584
-        y: 772
-        width: 561
-        height: 642
+        x: 448
+        y: 976
+        width: 560
+        height: 112
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -154,37 +154,15 @@ TextureImporter:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Unity-Logo_2
+      name: Ground
       rect:
         serializedVersion: 2
-        x: 2758
-        y: 1324
-        width: 156
-        height: 127
+        x: 434
+        y: 633
+        width: 1806
+        height: 231
       alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: b670f206e2a5adad0800000000000000
-      internalID: -2676727873289648277
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Unity-Logo_3
-      rect:
-        serializedVersion: 2
-        x: 2966
-        y: 775
-        width: 301
-        height: 639
-      alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -198,15 +176,15 @@ TextureImporter:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Unity-Logo_4
+      name: Platform2
       rect:
         serializedVersion: 2
-        x: 2214
-        y: 781
-        width: 469
-        height: 494
+        x: 1232
+        y: 1200
+        width: 560
+        height: 112
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -220,15 +198,15 @@ TextureImporter:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Unity-Logo_5
+      name: Platform3
       rect:
         serializedVersion: 2
-        x: 2758
-        y: 784
-        width: 156
-        height: 479
+        x: 1470
+        y: 864
+        width: 658
+        height: 112
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -242,15 +220,15 @@ TextureImporter:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Unity-Logo_6
+      name: Cabage
       rect:
         serializedVersion: 2
-        x: 3304
-        y: 625
-        width: 503
-        height: 636
+        x: 2148
+        y: 0
+        width: 540
+        height: 490
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -267,7 +245,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e97eb03825dee720800000000000000
+    spriteID: 7a52643f78d525843985f7e4076dc547
     internalID: 0
     vertices: []
     indices: 
@@ -277,13 +255,14 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Unity-Logo_0: -6872798846672869182
-      Unity-Logo_1: 6153757320813855303
+      Cabage: -4219102904848281651
+      Ground: -7114711912890519747
+      PLATAFORMAS_0: 1639087633
+      Platform1: 6153757320813855303
+      Platform2: 350861591139854687
+      Platform3: -1750327069009525157
       Unity-Logo_2: -2676727873289648277
-      Unity-Logo_3: -7114711912890519747
-      Unity-Logo_4: 350861591139854687
-      Unity-Logo_5: -1750327069009525157
-      Unity-Logo_6: -4219102904848281651
+      Watermelon: -6872798846672869182
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
